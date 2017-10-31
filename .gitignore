@@ -1,0 +1,4 @@
+*.pyc
+.vscode
+tutoriaserver/static
+tutoriaserver/templates
