@@ -1,7 +1,5 @@
 from django.db import models
 
-
-
 class University(models.Model):
 
     @classmethod
@@ -9,10 +7,6 @@ class University(models.Model):
         return cls.objects.create(name=name)
 
     name = models.CharField(max_length=50)
-
-    @property
-    def tutorRoles(self):
-        return self.tutorRoleSet.all()
 
     def __str__(self):
         return 'University: "{self.name}"'.format(self=self)

@@ -2,16 +2,28 @@ from django.contrib import admin
 
 from .models import *
 
-class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'givenName', 'familyName', 'phoneNumber')
+class UserAdmin(admin.ModelAdmin):
+    list_display = ('id', 'givenName', 'familyName', 'phoneNumber')
 
-admin.site.register(UserProfile, UserProfileAdmin)
+admin.site.register(User, UserAdmin)
 
-admin.site.register(StudentRole)
-admin.site.register(TutorRole)
+admin.site.register(Student)
+
+class TutorAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user')
+admin.site.register(Tutor, TutorAdmin)
+
+admin.site.register(SubjectTag)
 
 admin.site.register(University)
 admin.site.register(CourseCode)
 
-admin.site.register(TutorialSession)
-admin.site.register(BlackenOutSession)
+class TutorialAdmin(admin.ModelAdmin):
+    list_display = ('id', 'student', 'tutor', 'startDate', 'endDate', 'locked', 'cancelled')
+admin.site.register(Tutorial, TutorialAdmin)
+
+class UnavailablePeriodAdmin(admin.ModelAdmin):
+    list_display = ('id', 'tutor', 'startDate', 'endDate', 'cancelled')
+admin.site.register(UnavailablePeriod, UnavailablePeriodAdmin)
+
+admin.site.register(Review)

@@ -1,5 +1,6 @@
-from .userprofile import UserProfile
-from .roles import Role, StudentRole, TutorRole
+from .user import User
+from .role import Role, Student, Tutor, SubjectTag
 from .university import University
 from .coursecode import CourseCode
-from .occupiedsessions import OccupiedSession, TutorialSession, BlackenOutSession
+from .event import Event, Tutorial, UnavailablePeriod
+from .review import Review
