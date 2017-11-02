@@ -1,4 +1,4 @@
-from .auth import LoginView, LogoutView
+from . import users
 from .user import UserEventsView
 from .session import *
 from .tutors import SearchTutorsView

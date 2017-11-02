@@ -3,8 +3,12 @@ from django.conf.urls import url
 from . import views
 
 urlpatterns = [
-    url(r'^auth/login$', views.LoginView.as_view()),
-    url(r'^auth/logout$', views.LogoutView.as_view()),
+
+    # GET users/{username}
+    url(r'^users/(?P<username>\w+)$', views.users.ProfileView.as_view()),
+
+    # PUT/DELETE users/{username}/login-session
+    url(r'^users/(?P<username>\w+)/login\-session$', views.users.LoginSessionView.as_view()),
 
     url(r'^user/events$', views.UserEventsView.as_view()),
 

@@ -6,49 +6,49 @@ from django.contrib.auth.models import User as BaseUser
 class User(BaseUser):
 
     @classmethod
-    def create(cls, username, password, email, givenName, familyName, phoneNumber, avatar=''):
+    def create(cls, username, password, email, given_name, family_name, phone_number, avatar=''):
         return cls.objects.create(
             username = username,
             password = password,
             email = email,
-            first_name = givenName,
-            last_name = familyName, 
-            phoneNumber = phoneNumber,
+            first_name = given_name,
+            last_name = family_name, 
+            phone_number = phone_number,
             avatar = avatar
         )
 
-    baseUser = models.OneToOneField(BaseUser, parent_link=True, related_name='user', related_query_name='user')
+    base_user = models.OneToOneField(BaseUser, parent_link=True, related_name='user', related_query_name='user')
 
-    phoneNumber = models.CharField(max_length=8)
+    phone_number = models.CharField(max_length=8)
 
     avatar = models.TextField(blank=True, default='')
 
 
     @property
-    def givenName(self):
+    def given_name(self):
         return self.user.first_name
 
-    @givenName.setter
-    def givenName(self, value):
+    @given_name.setter
+    def given_name(self, value):
         self.user.first_name = value
 
     @property
-    def familyName(self):
+    def family_name(self):
         return self.user.last_name
 
-    @familyName.setter
-    def familyName(self, value):
+    @family_name.setter
+    def family_name(self, value):
         self.user.last_name = value
 
 
 
-    def addConcreteRole(self, roleType, *args, **kwargs):
-        role = self.getConcreteRole(roleType)
+    def add_concrete_role(self, role_type, *args, **kwargs):
+        role = self.get_concrete_role(role_type)
         if role is not None:
             return role
         else:
-            return roleType.create(self, *args, **kwargs)
+            return role_type.create(self, *args, **kwargs)
 
 
     def __str__(self):
-        return '{self.user.username} ({self.givenName} {self.familyName})'.format(self=self)
+        return '{self.user.username} ({full_name})'.format(self=self, full_name=self.get_full_name())

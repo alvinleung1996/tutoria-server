@@ -2,7 +2,7 @@ from django.db import models
 from .user import User
 
 from .university import University
-from .coursecode import CourseCode
+from .course_code import CourseCode
 from .event import UnavailablePeriod
 from .review import Review
 
@@ -11,10 +11,10 @@ from decimal import Decimal
 
 class Role(models.Model):
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='roleSet', related_query_name='roleSet')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='role_set', related_query_name='role_set')
 
     @property
-    def concreteRole(self):
+    def concrete_role(self):
         if hasattr(self, 'student'):
             return self.student
         elif hasattr(self, 'tutor'):
@@ -23,8 +23,8 @@ class Role(models.Model):
             return None
 
     def __str__(self):
-        concreteRole = self.concreteRole
-        return 'Role <abstract>: ' + (concreteRole.__str__() if (concreteRole is not None) else 'Unknown!')
+        concrete_role = self.concrete_role
+        return 'Role <abstract>: ' + (concrete_role.__str__() if (concrete_role is not None) else 'Unknown!')
 
 
 
@@ -37,7 +37,7 @@ class Student(Role):
     role = models.OneToOneField(Role, on_delete=models.CASCADE, parent_link=True, related_name='student', related_query_name='student')
 
     def __str__(self):
-        return 'Student: {self.user.givenName} {self.user.familyName}'.format(self=self)
+        return 'Student: {self.user.given_name} {self.user.family_name}'.format(self=self)
 
 
 
@@ -47,7 +47,7 @@ class SubjectTag(models.Model):
     def create(cls, tutor, tag):
         return cls.objects.create(tutor=tutor, tag=tag)
 
-    tutor = models.ForeignKey('Tutor', on_delete=models.CASCADE, related_name='subjectTagSet', related_query_name='subjectTagSet')
+    tutor = models.ForeignKey('Tutor', on_delete=models.CASCADE, related_name='subject_tag_set', related_query_name='subject_tag_set')
 
     tag = models.CharField(max_length=10)
 
@@ -62,14 +62,14 @@ class Tutor(Role):
     TYPE_CONTRACTED = 'CO'
 
     @classmethod
-    def create(cls, user, type, activated, university, courseCodes, subjectTags=[]):
+    def create(cls, user, type, activated, university, course_codes, subject_tags=[]):
         return cls.objects.create(
             user = user,
             type = type,
             activated = activated,
             university = university,
-            courseCodeSet = courseCodes,
-            subjectTagSet = subjectTags
+            course_code_set = course_codes,
+            subject_tag_set = subject_tags
         )
         
 
@@ -82,16 +82,16 @@ class Tutor(Role):
 
     biography = models.TextField()
 
-    hourlyRate = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal(0))
+    hourly_rate = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal(0))
 
     activated = models.BooleanField(default=True)
 
-    university = models.ForeignKey(University, on_delete=models.PROTECT, related_name='tutorSet', related_query_name='tutorSet')
+    university = models.ForeignKey(University, on_delete=models.PROTECT, related_name='tutor_set', related_query_name='tutor_set')
 
-    courseCodeSet = models.ManyToManyField(CourseCode, related_name='tutorSet', related_query_name='tutorSet')
+    course_code_set = models.ManyToManyField(CourseCode, related_name='tutor_set', related_query_name='tutor_set')
 
     @property
-    def averageReviewScore(self):
+    def average_review_score(self):
         sum = 0
         length = 0
         for entry in Review.objects.filter(tutorial__tutor=self):
@@ -100,14 +100,14 @@ class Tutor(Role):
         return sum / length if length != 0 else -1
 
 
-    def addUnavailablePeriod(self, startDate, endDate):
+    def add_unavailable_period(self, start_date, end_date):
         return UnavailablePeriod.create(
             tutor = self,
-            startDate = startDate,
-            endDate = endDate,
+            start_date = start_date,
+            end_date = end_date,
             cancelled = False
         )
 
 
     def __str__(self):
-        return 'Tutor: {self.user.givenName} {self.user.familyName}'.format(self=self)
+        return 'Tutor: {self.user.given_name} {self.user.family_name}'.format(self=self)

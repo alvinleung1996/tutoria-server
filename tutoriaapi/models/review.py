@@ -4,12 +4,12 @@ from .event import Tutorial
 class Review(models.Model):
 
     @classmethod
-    def create(cls, tutorial, comment, creationDate, anonymous=False):
+    def create(cls, tutorial, comment, creation_date, anonymous=False):
         return cls.objects.create(
             tutorial = tutorial,
             anonymous = anonymous,
             comment = comment,
-            creationDate = creationDate
+            creation_date = creation_date
         )
 
 
@@ -17,7 +17,7 @@ class Review(models.Model):
 
     comment = models.TextField()
     score = models.IntegerField(default=5)
-    creationDate = models.DateTimeField()
+    creation_date = models.DateTimeField()
     anonymous = models.BooleanField(default=False)
 
     def __str__(self):
