@@ -1,11 +1,17 @@
 import json
+from decimal import Decimal
+from datetime import timedelta
+from http import HTTPStatus
+
+from dateutil import parser
 
 from django.contrib.auth.views import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from django.views import View
+from django.http import HttpResponse
 
-from ..models import User
+from ..models import User, Student, Tutor, Tutorial, UnavailablePeriod
 
 from .api_response import ApiResponse
 
@@ -23,25 +29,43 @@ def _user_to_json(user):
 
 class ProfileView(View):
 
-    http_method_names = ['get']
+    http_method_names = ['head', 'get']
+
+    def head(self, request, username, *args, **kwargs):
+
+        if (not request.user.is_authenticated
+                or not request.user.is_active
+                or (username != 'me' and request.user.username != username)):
+            return HttpResponse(status=HTTPStatus.FORBIDDEN)
+
+        try:
+            # request.user is django.contrib.auth.models.User
+            # request.user.user is tutoriaapi.models.User
+            user = request.user.user
+        except User.DoesNotExist:
+            return HttpResponse(status=404)
+
+        # return status code = 200
+        return HttpResponse()
+
 
     def get(self, request, username, *args, **kwargs):
 
         if not request.user.is_authenticated:
-            return ApiResponse(message='Not authenticated', status_code=403)
+            return ApiResponse(message='Not authenticated', status=403)
 
         elif not request.user.is_active:
-            return ApiResponse(message='Not active', status_code=403)
+            return ApiResponse(message='Not active', status=403)
         
         elif username != 'me' and request.user.username != username:
-            return ApiResponse(message='Access forbidened', status_code=403)
+            return ApiResponse(message='Access forbidened', status=403)
             
         try:
             # request.user is django.contrib.auth.models.User
             # request.user.user is tutoriaapi.models.User
             user = request.user.user
         except User.DoesNotExist:
-            return ApiResponse(message='No user profile found', status_code=404)
+            return ApiResponse(message='No user profile found', status=404)
 
         response = _user_to_json(user)
         return ApiResponse(response)
@@ -60,7 +84,7 @@ class LoginSessionView(View):
                 try:
                     user = request.user.user
                 except User.DoesNotExist:
-                    return ApiResponse(message='No user profile found', status_code=404)
+                    return ApiResponse(message='No user profile found', status=HTTPStatus.UNAUTHORIZED)
                 response = _user_to_json(user)
                 return ApiResponse(response)
             else:
@@ -69,24 +93,24 @@ class LoginSessionView(View):
         try:
             data = json.loads(request.body)
         except json.JSONDecodeError:
-            return ApiResponse(message='Invalid login data', status_code=403)
+            return ApiResponse(message='Invalid login data', status=403)
 
-        try:
-            password = data['password']
-        except KeyError:
-            return ApiResponse(message='Password required', status_code=403)
+        if 'password' not in data:
+            return ApiResponse(message='Password required', status=403)
         
-        base_user = authenticate(username=username, password=password)
+        base_user = authenticate(username=username, password=data['password'])
         if base_user is None:
-            return ApiResponse(message='Wrong login information', status_code=404)
+            return ApiResponse(message='Wrong login information', status=404)
 
         if not base_user.is_active:
-            return ApiResponse(message='User not active', status_code=403)
+            return ApiResponse(message='User not active', status=403)
 
         try:
             user = base_user.user
         except User.DoesNotExist:
-            return ApiResponse(message='No user profile found', status_code=404)
+            return ApiResponse(message='No user profile found', status=404)
+
+        login(request, base_user)
         
         response = _user_to_json(user)
         return ApiResponse(response)
@@ -97,7 +121,140 @@ class LoginSessionView(View):
             return ApiResponse(message='Not logged in')
 
         elif username != 'me' and username != request.user.username:
-            return ApiResponse(message='Delete forbidened', status_code=403)
+            return ApiResponse(message='Delete forbidened', status=HTTPStatus.FORBIDDEN)
 
         logout(request)
         return ApiResponse(message='Logout success')
+
+
+
+class EventsView(View):
+
+    http_method_names = ['get']
+
+    def get(self, request, username, *args, **kwargs):
+
+        if (not request.user.is_authenticated or not request.user.is_active
+            or (username != 'me' and request.user.username != username)):
+            return ApiResponse(message='Login required', status=HTTPStatus.FORBIDDEN)
+        
+        try:
+            user = request.user.user
+        except User.DoesNotExist:
+            return ApiResponse(message='Profile not found', status=404)
+
+        data = []
+        
+        for event in user.event_set.filter(cancelled=False):
+            concrete_event = event.concrete_event
+
+            item = dict(
+                id = concrete_event.id,
+                startDate = concrete_event.start_date.isoformat(timespec='microseconds'),
+                endDate = concrete_event.end_date.isoformat(timespec='microseconds')
+            )
+
+            if isinstance(concrete_event, Tutorial):
+                item['type'] = 'tutorial'
+                item['student'] = dict(
+                    givenName = concrete_event.student.user.given_name,
+                    familyName = concrete_event.student.user.family_name
+                )
+                item['tutor'] = dict(
+                    givenName = concrete_event.tutor.user.given_name,
+                    familyName = concrete_event.tutor.user.family_name
+                )
+
+            elif isinstance(concrete_event, UnavailablePeriod):
+                item['type'] = 'unavailablePeriod'
+                item['tutor'] = dict(
+                    givenName = concrete_event.tutor.user.given_name,
+                    familyName = concrete_event.tutor.user.family_name
+                )
+            
+            data.append(item)
+
+        return ApiResponse(dict(data=data))
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class TutorialCollectionView(View):
+
+    http_method_names = ['post']
+
+    def post(self, request, username, *args, **kwargs):
+        if (not request.user.is_authenticated or not request.user.is_active
+                or (username != 'me' and request.user.username != username)):
+            return ApiResponse(message='Login required', status=HTTPStatus.FORBIDDEN)
+        
+        try:
+            student = Student.objects.get(user__base_user=request.user)
+        except Student.DoesNotExist:
+            return ApiResponse(message='Require student role', status=403)
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError as e:
+            return ApiResponse(message='Cannot recognize data', status=HTTPStatus.BAD_REQUEST)
+
+        if 'tutorUsername' not in data or 'startDate' not in data or 'endDate' not in data:
+            return ApiResponse(message='Data missing', status=HTTPStatus.BAD_REQUEST)
+
+        try:
+            tutor = Tutor.objects.get(user__username=data['tutorUsername'])
+        except Tutor.DoesNotExist:
+            return ApiResponse(message='Does not have tutor role', status=HTTPStatus.FORBIDDEN)
+
+        try:
+            start_date = parser.parse(data['startDate'])
+            end_date = parser.parse(data['endDate'])
+        except (ValueError, OverflowError):
+            return ApiResponse(message='Wrong date format', status=HTTPStatus.BAD_REQUEST)
+        
+        # TODO: Calc charge...
+        duration = end_date - start_date
+        charge = tutor.hourly_rate * Decimal(duration / timedelta(hours=1))
+
+        # TODO: Check time slow availability
+        pass
+
+        if 'preview' in data and bool(data['preview']):
+            return ApiResponse(dict(
+                charge = charge
+            ))
+        
+        else:
+            tutorial = student.add_tutorial(
+                tutor = tutor,
+                start_date = start_date,
+                end_date = end_date
+            )
+            return ApiResponse(dict(
+                tutorialId=tutorial.id
+            ))
+
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class TutorialView(View):
+
+    http_method_names = ['delete']
+    
+    def delete(self, request, username, tutorial_id, *args, **kwargs):
+        if (not request.user.is_authenticated or not request.user.is_active
+                or (username != 'me' and request.user.username != username)):
+            return ApiResponse(message='Login required', status=HTTPStatus.FORBIDDEN)
+        
+        try:
+            tutorial = Tutorial.objects.get(id=tutorial_id, student__user__base_user=request.user)
+        except Tutorial.DoesNotExist:
+            return ApiResponse(message='Cannot find event with id: {id}'.format(id=tutorial_id), status=HTTPStatus.NOT_FOUND)
+
+        if tutorial.cancelled:
+            return ApiResponse(message='Tutorial has already been cancelled')
+        
+        tutorial.cancelled = True
+        tutorial.save()
+        
+        return ApiResponse(message='Success')
+        

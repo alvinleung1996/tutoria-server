@@ -3,7 +3,7 @@ from django.test import TestCase
 from ..models.userprofile import UserProfile
 from ..models.roles import StudentRole, TutorRole
 from ..models.university import University
-from ..models.coursecode import CourseCode
+from ..models.course_code import CourseCode
 
 class RolesTest(TestCase):
 

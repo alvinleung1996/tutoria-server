@@ -3,7 +3,7 @@ from .user import User
 
 from .university import University
 from .course_code import CourseCode
-from .event import UnavailablePeriod
+from .event import Tutorial, UnavailablePeriod
 from .review import Review
 
 from decimal import Decimal
@@ -35,6 +35,9 @@ class Student(Role):
         return cls.objects.create(user=user)
 
     role = models.OneToOneField(Role, on_delete=models.CASCADE, parent_link=True, related_name='student', related_query_name='student')
+
+    def add_tutorial(self, tutor, start_date, end_date, *args, **kwargs):
+        return Tutorial.create(self, tutor, start_date, end_date, *args, **kwargs)
 
     def __str__(self):
         return 'Student: {self.user.given_name} {self.user.family_name}'.format(self=self)

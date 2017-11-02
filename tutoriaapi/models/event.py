@@ -31,7 +31,7 @@ class Tutorial(Event):
     @classmethod
     def create(cls, student, tutor, start_date, end_date, cancelled=False, locked=False):
         tutorial = cls.objects.create(
-            startDate = startDate,
+            start_date = start_date,
             end_date = end_date,
             cancelled = cancelled,
             student = student,

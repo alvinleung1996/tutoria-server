@@ -4,26 +4,33 @@ from . import views
 
 urlpatterns = [
 
-    # GET users/{username}
+    #
+    # users.py
+    #
+    # HEAD/GET users/{username}
     url(r'^users/(?P<username>\w+)$', views.users.ProfileView.as_view()),
 
     # PUT/DELETE users/{username}/login-session
     url(r'^users/(?P<username>\w+)/login\-session$', views.users.LoginSessionView.as_view()),
 
-    url(r'^user/events$', views.UserEventsView.as_view()),
+    # GET users/{username}/events
+    url(r'^users/(?P<username>\w+)/events$', views.users.EventsView.as_view()),
 
-    # search tutors
-    url(r'^tutors$', views.SearchTutorsView.as_view()),
+    # POST users/{username}/tutorials
+    # { "preview": true } -> no booking, only preview the charge
+    # other book th tutorial
+    url(r'^users/(?P<username>\w+)/tutorials$', views.users.TutorialCollectionView.as_view()),
 
-    # show tutor detail
-    url(r'^tutor\/(?P<tutorUsername>\w+)$', views.TutorProfileView.as_view()),
+    # DELETE users/{username}/tutorials/{tutorialId}
+    url(r'^users/(?P<username>\w+)/tutorials/(?P<tutorial_id>\w+)$', views.users.TutorialView.as_view()),
 
-    # Get tutorial fee
-    url(r'^tutor\/(?P<tutorUsername>\w+)\/tutorial\-fee$', views.TutorialFeeView.as_view()),
+    #
+    # tutors.py
+    #
+    # GET tutors?query-params=...
+    url(r'^tutors$', views.tutors.SearchView.as_view()),
 
-    # Book Tutorial Session
-    url(r'^tutor\/(?P<tutorUsername>\w+)\/tutorials$', views.BookTutorialView.as_view()),
+    # GET tutors/{username}
+    url(r'^tutors\/(?P<tutor_username>\w+)$', views.tutors.ProfileView.as_view())
 
-    # Cancel Event
-    url(r'^event/(?P<eventId>\d+)', views.CancelEventView.as_view())
 ]

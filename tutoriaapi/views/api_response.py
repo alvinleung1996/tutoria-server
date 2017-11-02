@@ -2,8 +2,16 @@ from django.http import JsonResponse
 
 class ApiResponse(JsonResponse):
 
-    def __init__(self, *args, message=None, **kwargs):
+    def __init__(self, data=None, *args, message=None, **kwargs):
         if message is not None:
-            kwargs['content'] = dict(message=message)
-        super().__init__(*args, **kwargs)
+            if data is None:
+                data = {}
+            data['message'] = message
+        
+        if 'status' in kwargs and isinstance(kwargs['status'], tuple):
+            httpStatus = kwargs['status']
+            kwargs['status'] = httpStatus[0]
+            kwargs.setdefault('reason', httpStatus[1])
+            
+        super().__init__(data, *args, **kwargs)
         
