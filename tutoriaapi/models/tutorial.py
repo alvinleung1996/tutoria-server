@@ -48,13 +48,16 @@ class Tutorial(event.Event):
         if not preview['payable']:
             raise wallet.Wallet.InsufficientBalanceError()
         
-        fee = preview['fee']
+        fee = preview['fee'] * Decimal('1.05')
 
-        student_to_company_transaction = transaction.Transaction.create(
-            withdraw = student.user,
-            deposit = user.User.objects.get(company__isnull=False),
-            amount = fee
-        )
+        if fee > Decimal('0'):
+            student_to_company_transaction = transaction.Transaction.create(
+                withdraw = student.user,
+                deposit = user.User.objects.get(company__isnull=False),
+                amount = fee
+            )
+        else:
+            student_to_company_transaction = None
 
         tutorial = cls.objects.create(
             start_time = start_time,
@@ -97,20 +100,31 @@ class Tutorial(event.Event):
     def pay_to_tutor(self):
         if (self.fee == Decimal('0')):
             return
+
+        if self.company_to_tutor_transaction is not None:
+            raise ApiException('Tutorial fee has been paid to tutor')
+        
         charge = self.fee / Decimal('1.05')
         self.company_to_tutor_transaction = transaction.Transaction.create(
-            withdraw_user = user.User.objects.get(company__isnull=False),
-            deposit_user = self.tutor.user,
+            withdraw = user.User.objects.get(company__isnull=False),
+            deposit = self.tutor.user,
             amount = charge
         )
     
     def refund(self):
         if (self.fee == Decimal('0')):
             return
+
+        if self.company_to_tutor_transaction is not None:
+            raise ApiException('Tutorial fee has been paid to tutor')
+        
+        if self.company_to_student_transaction is not None:
+            raise ApiException('Tutorial fee has been funded')
+        
         charge = self.fee / Decimal('1.05')
         self.company_to_student_transaction = transaction.Transaction.create(
-            withdraw_user = user.User.objects.get(company__isnull=False),
-            deposit_user = self.tutor.user,
+            withdraw = user.User.objects.get(company__isnull=False),
+            deposit = self.tutor.user,
             amount = charge
         )
 

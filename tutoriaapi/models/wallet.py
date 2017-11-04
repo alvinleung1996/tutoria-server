@@ -26,7 +26,6 @@ class Wallet(models.Model):
 
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
 
-
     def withdraw(self, amount):
         with transaction.atomic():
             wallet_row = type(self).objects.select_for_update().get(pk=self.pk)

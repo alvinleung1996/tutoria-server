@@ -6,7 +6,7 @@ from ..models import *
 
 from . import user_test, university_test, course_code_test
 
-tutor_data_0 = dict(
+tutor_data_contracted_0 = dict(
     type = Tutor.TYPE_CONTRACTED,
     biography = 'This is my biography',
     hourly_rate = Decimal('0'),
@@ -14,8 +14,8 @@ tutor_data_0 = dict(
     subject_tags = ['Tag0', 'Tag1']
 )
 
-tutor_data_1 = dict(
-    type = Tutor.TYPE_CONTRACTED,
+tutor_data_private_0 = dict(
+    type = Tutor.TYPE_PRIVATE,
     biography = 'I am a private tutor',
     hourly_rate = Decimal('30'),
     activated = True,
@@ -42,10 +42,10 @@ class TutorTest(TestCase):
             user = user,
             university = university,
             course_codes = course_codes,
-            **tutor_data_0
+            **tutor_data_contracted_0
         )
 
-        assert_tutor_equal_data(self, tutor, **tutor_data_0)
+        assert_tutor_equal_data(self, tutor, **tutor_data_contracted_0)
         self.assertEqual(tutor.user, user)
         self.assertEqual(user.tutor, tutor)
         self.assertEqual(user.get_role(Tutor), tutor)
@@ -66,10 +66,10 @@ class TutorTest(TestCase):
         tutor = user.add_role(Tutor,
             university = university,
             course_codes = course_codes,
-            **tutor_data_0
+            **tutor_data_contracted_0
         )
 
-        assert_tutor_equal_data(self, tutor, **tutor_data_0)
+        assert_tutor_equal_data(self, tutor, **tutor_data_contracted_0)
         self.assertEqual(tutor.user, user)
         self.assertEqual(user.tutor, tutor)
         self.assertEqual(tutor.university, university)

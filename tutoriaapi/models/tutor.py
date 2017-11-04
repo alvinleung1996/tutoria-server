@@ -106,7 +106,7 @@ class Tutor(models.Model):
                 or (self.type == self.TYPE_PRIVATE and start_time.minute not in [0, 30])):
             return False
 
-        if (end_time - start_time) != (timedelta(minutes=30) if (self.type == self.TYPE_CONTRACTED) else timedelta(minutes=60)):
+        if (end_time - start_time) not in ([timedelta(minutes=30)] if (self.type == self.TYPE_CONTRACTED) else [timedelta(minutes=30), timedelta(minutes=60)]):
             return False
 
         local_day_start_time = start_time.astimezone(djtimezone.get_current_timezone()).replace(
@@ -142,7 +142,7 @@ class Tutor(models.Model):
         
         duration = end_time - start_time
         fee = (Decimal('0') if self.type == self.TYPE_CONTRACTED
-              else self.hourly_rate * (Decimal(duration.total_seconds()) / Decimal(timedelta(hours=1).total_seconds())) * Decimal('1.05'))
+              else self.hourly_rate * (Decimal(duration.total_seconds()) / Decimal(timedelta(hours=1).total_seconds())))
         return fee
 
 
