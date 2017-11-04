@@ -150,8 +150,8 @@ class EventsView(View):
 
             item = dict(
                 id = concrete_event.id,
-                startDate = concrete_event.start_date.isoformat(timespec='microseconds'),
-                endDate = concrete_event.end_date.isoformat(timespec='microseconds')
+                startTime = concrete_event.start_time.isoformat(timespec='microseconds'),
+                endTime = concrete_event.end_time.isoformat(timespec='microseconds')
             )
 
             if isinstance(concrete_event, Tutorial):
@@ -197,7 +197,7 @@ class TutorialCollectionView(View):
         except json.JSONDecodeError as e:
             return ApiResponse(message='Cannot recognize data', status=HTTPStatus.BAD_REQUEST)
 
-        if 'tutorUsername' not in data or 'startDate' not in data or 'endDate' not in data:
+        if 'tutorUsername' not in data or 'startTime' not in data or 'endTime' not in data:
             return ApiResponse(message='Data missing', status=HTTPStatus.BAD_REQUEST)
 
         try:
@@ -206,13 +206,13 @@ class TutorialCollectionView(View):
             return ApiResponse(message='Does not have tutor role', status=HTTPStatus.FORBIDDEN)
 
         try:
-            start_date = parser.parse(data['startDate'])
-            end_date = parser.parse(data['endDate'])
+            start_time = parser.parse(data['startTime'])
+            end_time = parser.parse(data['endTime'])
         except (ValueError, OverflowError):
-            return ApiResponse(message='Wrong date format', status=HTTPStatus.BAD_REQUEST)
+            return ApiResponse(message='Wrong time format', status=HTTPStatus.BAD_REQUEST)
         
         # TODO: Calc charge...
-        duration = end_date - start_date
+        duration = end_time - start_time
         charge = tutor.hourly_rate * Decimal(duration / timedelta(hours=1))
 
         # TODO: Check time slow availability
@@ -226,8 +226,8 @@ class TutorialCollectionView(View):
         else:
             tutorial = student.add_tutorial(
                 tutor = tutor,
-                start_date = start_date,
-                end_date = end_date
+                start_time = start_time,
+                end_time = end_time
             )
             return ApiResponse(dict(
                 tutorialId=tutorial.id

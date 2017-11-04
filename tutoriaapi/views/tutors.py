@@ -70,7 +70,7 @@ class ProfileView(View):
         for review in Review.objects.filter(tutorial__tutor=tutor):
             item = dict(
                 score = review.score,
-                creationDate = review.creation_date.isoformat(timespec='microseconds'),
+                time = review.time.isoformat(timespec='microseconds'),
                 comment = entry.comment
             )
             if not review.anonymous:
@@ -82,8 +82,8 @@ class ProfileView(View):
         
         for event in tutor_user.event_set.filter(cancelled=False):
             item = dict(
-                startDate = event.start_date.isoformat(timespec='microseconds'),
-                endDate = event.end_date.isoformat(timespec='microseconds')
+                startTime = event.start_time.isoformat(timespec='microseconds'),
+                endTime = event.end_time.isoformat(timespec='microseconds')
             )
             data['events'].append(item)
 
