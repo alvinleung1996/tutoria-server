@@ -73,8 +73,8 @@ class User(BaseUser):
         else:
             raise Exception('Unsupported role type')
 
-    def send_message(self, to_user, content):
-        return message.Message.create(self, to_user, content)
+    def send_message(self, to_user, **kwargs):
+        return message.Message.create(self, to_user, **kwargs)
 
     def has_no_event(self, start_time, end_time):
         if end_time < start_time:

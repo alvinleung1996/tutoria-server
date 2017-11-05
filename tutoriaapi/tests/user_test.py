@@ -57,6 +57,6 @@ class UserTest(TestCase):
     def test_send_message(self):
         send_user = User.create(**user_data_0)
         receive_user = User.create(**user_data_1)
-        message = send_user.send_message(receive_user, *message_test.message_data_0)
+        message = send_user.send_message(receive_user, **message_test.message_data_0)
         self.assertIn(message, send_user.send_message_set.all())
         self.assertIn(message, receive_user.receive_message_set.all())
