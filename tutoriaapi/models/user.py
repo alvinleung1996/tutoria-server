@@ -79,7 +79,7 @@ class User(BaseUser):
     def has_no_event(self, start_time, end_time):
         if end_time < start_time:
             raise ValueError('end_time cannot before start_time')
-        events = self.event_set.filter(end_time__gt=start_time, start_time__lt=end_time)
+        events = self.event_set.filter(end_time__gt=start_time, start_time__lt=end_time, cancelled=False)
         return not events.exists()
 
 

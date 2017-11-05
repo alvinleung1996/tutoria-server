@@ -9,6 +9,7 @@ from .course_code_test import *
 
 from .event_test import *
 from .tutorial_test import *
+from .unavailable_period_test import *
 
 from .wallet_test import *
 from .transaction_test import *
