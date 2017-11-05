@@ -6,7 +6,10 @@ class Event(models.Model):
 
     @classmethod
     def create(cls, users, start_time, end_time, cancelled=False, **kwargs):
-        return cls.objects.create(users=users, start_time=start_time, end_time=end_time, cancelled=cancelled)
+        event = cls.objects.create(start_time=start_time, end_time=end_time, cancelled=cancelled)
+        event.user_set.set(users)
+        event.save()
+        return event
 
     user_set = models.ManyToManyField('User', related_name='event_set', related_query_name='event')
 

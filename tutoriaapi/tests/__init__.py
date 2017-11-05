@@ -7,6 +7,7 @@ from .company_test import *
 from .university_test import *
 from .course_code_test import *
 
+from .event_test import *
 from .tutorial_test import *
 
 from .wallet_test import *
