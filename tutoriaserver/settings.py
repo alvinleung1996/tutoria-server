@@ -51,6 +51,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware'
 ]
 
+CRON_CLASSES = [
+    "tutoriaapi.cron.cronJob",
+]
+
 ROOT_URLCONF = 'tutoriaserver.urls'
 
 TEMPLATES = [
