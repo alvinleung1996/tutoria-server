@@ -98,10 +98,6 @@ class Tutorial(event.Event):
         if (self.fee == Decimal('0')):
             return
 
-        #invitation to review
-        # message.Message.create(user.User.objects.get(company__isnull=False), self.student.user, 'Tutorial reivew', 'You are invited to review')
-        # print('Invitation to review sent to ' + self.student.user.username)
-
         if self.company_to_tutor_transaction is not None:
             raise ApiException('Tutorial fee has been paid to tutor')
 
@@ -118,15 +114,6 @@ class Tutorial(event.Event):
             amount = charge
         )
         self.save()
-        
-        #notification when a payment is made to their wallet
-        message.Message.create(
-            send_user = user.User.objects.get(company__isnull=False),
-            receive_user = self.tutor.user,
-            title = 'Tutorial payment',
-            content = 'Tutorial fee ' + str(charge) + ' received'
-        )
-        print('Payment made to tutor ' + self.tutor.user.username)
         
 
     def refund(self):
