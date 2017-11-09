@@ -139,10 +139,13 @@ class Tutor(models.Model):
 
         if end_time < start_time:
             raise ValueError('end_time before start_time')
+
+        if self.type == self.TYPE_CONTRACTED:
+            return Decimal('0')
         
         duration = end_time - start_time
-        fee = (Decimal('0') if self.type == self.TYPE_CONTRACTED
-              else self.hourly_rate * (Decimal(duration.total_seconds()) / Decimal(timedelta(hours=1).total_seconds())))
+        fee = self.hourly_rate * (Decimal(duration.total_seconds()) / Decimal(timedelta(hours=1).total_seconds()))
+        
         return fee
 
 

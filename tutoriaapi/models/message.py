@@ -13,6 +13,7 @@ class Message(models.Model):
             content = content,
             read = read
         )
+        
 
     send_user = models.ForeignKey('User', on_delete=models.SET_NULL, related_name='send_message_set', related_query_name='send_message', null=True)
 
