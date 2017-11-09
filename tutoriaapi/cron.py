@@ -10,12 +10,12 @@ class cronJob(CronJobBase):
 
     def do(self):
         print("Locking all sessions")
-        for tutorial in Tutorial.objects.filter(cancelled=False).filter(start_time__lte=datetime.now(tz=timezone.utc)).filter(locked=False).all():
+        for tutorial in Tutorial.objects.filter(cancelled=False).filter(start_time__lte=datetime.now(tz=timezone.utc)):
             print(tutorial.start_time)
             print(tutorial.end_time)
         print("Locked all sessions")
         print("Ending all sessions")
-        for tutorial in Tutorial.objects.filter(locked=True).filter(end_time__lte=datetime.now(tz=timezone.utc)).filter(company_to_tutor_transaction__isnull=True).all():
+        for tutorial in Tutorial.objects.filter(end_time__lte=datetime.now(tz=timezone.utc)).filter(company_to_tutor_transaction__isnull=True):
             print(tutorial.start_time)
             print(tutorial.end_time)
             tutorial.pay_to_tutor()
