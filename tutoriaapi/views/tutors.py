@@ -1,9 +1,12 @@
 from django.views import View
 
-from ..models import Tutor, CourseCode, Review
+from ..models import Tutor, CourseCode, Review, UnavailablePeriod
 
 from .api_response import ApiResponse
 
+
+from django.utils import timezone
+import datetime
 
 class SearchView(View):
 
@@ -12,10 +15,11 @@ class SearchView(View):
     def get(self, request, *args, **kwargs):
 
         if not request.user.is_authenticated or not request.user.is_active:
-            return ApiResponse(message='Login required', status=403)
+            return ApiResponse(message='Login required', status=403)  
 
         need_filter_for_coursecode = False
         need_filter_for_subject_tag = False
+        only_availble_tutor = False
         order = request.GET['order_by']
         given_name = request.GET['given_name']
         family_name = request.GET['family_name']
@@ -35,10 +39,10 @@ class SearchView(View):
             results = results.order_by(order)
 
         if given_name != '':
-            results = results.filter(user__given_name=given_name)
+            results = results.filter(user__first_name=given_name)
 
         if family_name != '':
-            results = results.filter(user__family_name=family_name)
+            results = results.filter(user__last_name=family_name)
 
         if university != '':
             results = results.filter(university__name=university)
@@ -58,6 +62,9 @@ class SearchView(View):
         if subject_tag != '':
             need_filter_for_subject_tag = True
 
+        if available_in_the_next_seven_days != '':
+            only_availble_tutor = True
+
 
         data = []
 
@@ -66,8 +73,8 @@ class SearchView(View):
 
             satisfy = True
 
-            subject_tags = list(map(lambda t: t.tag, tutor.subjectTagSet.all()))
-            course_codes = list(map(lambda c: c.code, tutor.courseCodeSet.all()))
+            subject_tags = list(map(lambda t: t.tag, tutor.subject_tag_set.all()))
+            course_codes = list(map(lambda c: c.code, tutor.course_code_set.all()))
 
             if need_filter_for_coursecode == True:
                 if coursecode not in course_codes:
@@ -77,25 +84,43 @@ class SearchView(View):
                 if subject_tag not in subject_tags:
                     satisfy = False
 
+            if only_availble_tutor == True:
+                is_availble = False
+                time_lower_bound = timezone.now()
+                time_upper_bound = time_lower_bound + datetime.timedelta(days=7)
+                events = UnavailablePeriod.objects.filter(tutor=tutor)
+                events = events.filter(start_time__lte=time_upper_bound)
+                events = events.filter(end_time__gte=time_lower_bound).order_by('start_time')
+                for event in events:
+                    if event.start_time > time_lower_bound:
+                        is_availble = True
+                        break
+                    else:
+                        time_lower_bound = event.end_time 
+                if time_lower_bound < time_upper_bound:
+                    is_availble = True
+                if is_availble != True:
+                    satisfy = False
+
             if satisfy == True:
-                item = dict{
-                    'username': user.username,
-                    'givenName': user.given_name,
-                    'familyName': user.family_name,
-                    'avatar': user.avatar,
-                    'hourlyRate': tutor.hourly_rate,
-                    'university': tutor.university.name,
-                    'courseCodes': course_codes,
-                    'subjectTags': subject_tags,
-                    'averageReview_score': -1
-                }
+                item = dict(
+                    username = user.username,
+                    givenName = user.given_name,
+                    familyName = user.family_name,
+                    avatar = user.avatar,
+                    hourlyRate = tutor.hourly_rate,
+                    university = tutor.university.name,
+                    courseCodes = course_codes,
+                    subjectTags = subject_tags,
+                    averageReviewScore = -1
+                )
             
                 if Review.objects.filter(tutorial__tutor=tutor).count() >= 3:
-                    tutor['averageReviewScore'] = tutor.averageReviewScore
+                    tutor['averageReviewScore'] = tutor.average_review_score
             
-                data.append(tutor)
+                data.append(item)
 
-        return ApiResponse(data)
+        return ApiResponse(dict(data=data))
 
 
 class ProfileView(View):
