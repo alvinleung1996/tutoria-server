@@ -37,7 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'tutoriaapi.apps.TutoriaApiConfig'
+    'tutoriaapi.apps.TutoriaApiConfig',
+    'django_cron'
 ]
 
 MIDDLEWARE = [
@@ -48,6 +49,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware'
+]
+
+CRON_CLASSES = [
+    "tutoriaapi.cron.cronJob",
 ]
 
 ROOT_URLCONF = 'tutoriaserver.urls'
