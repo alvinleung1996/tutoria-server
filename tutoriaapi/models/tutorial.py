@@ -12,8 +12,8 @@ from ..api_exception import ApiException
 class Tutorial(event.Event):
 
     class TutorialNotCreatableError(ApiException):
-        def __init__(self, bill):
-            self.bill = bill
+        def __init__(self, preview):
+            self.preview = preview
 
 
     @classmethod
@@ -82,7 +82,7 @@ class Tutorial(event.Event):
         preview = cls.preview(student, tutor, start_time, end_time)
 
         if not preview['creatable']:
-            raise cls.TutorialNotCreatableError(bill=bill)
+            raise cls.TutorialNotCreatableError(preview=preview)
 
         if preview['total_fee'] > Decimal('0'):
             student_to_company_transaction = transaction.Transaction.create(
