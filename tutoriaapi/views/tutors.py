@@ -15,7 +15,7 @@ class SearchView(View):
     def get(self, request, *args, **kwargs):
 
         if not request.user.is_authenticated or not request.user.is_active:
-            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED) 
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
 
         tutors = Tutor.objects.filter(activated=True).exclude(user__base_user=request.user)
 
@@ -36,7 +36,7 @@ class SearchView(View):
 
         if 'hourly-rate-min' in request.GET:
             tutors = tutors.filter(hourly_rate__gte=Decimal(request.GET['hourly-rate-min']))
-        
+
         if 'hourly-rate-max' in request.GET:
             tutors = tutors.filter(hourly_rate__lte=Decimal(request.GET['hourly-rate-max']))
 
@@ -77,10 +77,10 @@ class SearchView(View):
                         break
                     else:
                         time_lower_bound = max(time_lower_bound, event.end_time)
-                
+
                 if not is_free:
                     is_free = time_lower_bound < time_upper_bound
-                
+
                 satisfy = satisfy and is_free
 
 
@@ -98,12 +98,12 @@ class SearchView(View):
                     subjectTags = [t.tag for t in tutor.subject_tag_set.all()],
                     averageReviewScore = -1
                 )
-            
+
                 if Review.objects.filter(tutorial__tutor=tutor).count() >= 3:
                     item['averageReviewScore'] = tutor.average_review_score
-            
+
                 data.append(item)
-        
+
         if 'ordered-by' in request.GET:
             reverse = 'order' in request.GET and request.GET['order'] == 'descending'
 
@@ -121,10 +121,13 @@ class ProfileView(View):
 
     def get(self, request, tutor_username, *args, **kwargs):
 
+        if not request.user.is_authenticated or not request.user.is_active:
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
+
         try:
             tutor = Tutor.objects.get(user__username=tutor_username)
         except Tutor.DoesNotExist:
-            return ApiResponse(message='Profile not found', status=404)
+            return ApiResponse(error_message='Profile not found', status=HTTPStatus.NOT_FOUND)
 
         tutor_user = tutor.user
 
@@ -132,12 +135,13 @@ class ProfileView(View):
             username = tutor_user.username,
             givenName = tutor_user.given_name,
             familyName = tutor_user.family_name,
+            fullName = tutor_user.full_name,
             avatar = tutor_user.avatar,
             hourlyRate = tutor.hourly_rate,
             university = tutor.university.name,
-            courseCodes = list(map(lambda c: c.code, tutor.course_code_set.all())),
-            subjectTags = list(map(lambda t: t.tag, tutor.subject_tag_set.all())),
-            averageReviewScore = tutor.average_review_score,
+            courseCodes = [c.code for c in tutor.course_code_set.all()],
+            subjectTags = [t.tag for t in tutor.subject_tag_set.all()],
+            averageReviewScore = -1,
             biography = tutor.biography,
             reviews = [],
             events = []
@@ -151,12 +155,19 @@ class ProfileView(View):
             )
             if not review.anonymous:
                 item['student'] = dict(
-                    givenName = entry.tutorial.student.user.given_name,
-                    familyName = entry.tutorial.student.user.family_name
+                    givenName = review.tutorial.student.user.given_name,
+                    familyName = review.tutorial.student.user.family_name,
+                    fullName = review.tutorial.student.user.full_name
                 )
             data['reviews'].append(item)
-        
-        for event in tutor_user.event_set.filter(cancelled=False):
+
+        if len(data['reviews']) >= 3:
+            data['averageReviewScore'] = tutor.average_review_score
+
+        for event in tutor_user.event_set.filter(
+            cancelled = False,
+            end_time__gt = get_time(hour=0, minute=0)
+        ):
             item = dict(
                 startTime = event.start_time.isoformat(timespec='microseconds'),
                 endTime = event.end_time.isoformat(timespec='microseconds')
@@ -164,4 +175,3 @@ class ProfileView(View):
             data['events'].append(item)
 
         return ApiResponse(data)
-

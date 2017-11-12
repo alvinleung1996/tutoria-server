@@ -97,7 +97,7 @@ class Tutor(models.Model):
 
         # if current_time > start_time
         if start_time < current_time:
-            raise ValueError('start_time has passed')
+            return False
 
         # if start_time < 24 hours to start
         if (start_time - current_time) < timedelta(days=1):
@@ -110,15 +110,6 @@ class Tutor(models.Model):
             return False
 
         if (end_time - start_time) not in ([timedelta(minutes=30)] if (self.type == self.TYPE_CONTRACTED) else [timedelta(minutes=30), timedelta(minutes=60)]):
-            return False
-
-        local_day_start_time = start_time.astimezone(djtimezone.get_current_timezone()).replace(
-            hour = 0, minute = 0, second = 0, microsecond = 0
-        )
-        local_day_end_time = local_day_start_time + timedelta(days=1)
-
-        # if student has already book one tutorial on the sam day
-        if not self.user.has_no_event(local_day_start_time, local_day_end_time):
             return False
 
         return True

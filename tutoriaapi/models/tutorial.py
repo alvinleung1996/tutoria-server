@@ -2,6 +2,7 @@ from decimal import Decimal
 from datetime import timedelta
 
 from django.db import models
+from django.utils import timezone as djtimezone
 
 from . import event, user, tutor, coupon, transaction, wallet, message
 coupon_m = coupon
@@ -22,33 +23,54 @@ class Tutorial(event.Event):
 
         """
         # Check if time is valid
-        time_is_valid = student.is_valid_tutorial_time(start_time, end_time) and tutor.is_valid_tutorial_time(start_time, end_time)
+        is_time_valid = student.is_valid_tutorial_time(start_time, end_time) and tutor.is_valid_tutorial_time(start_time, end_time)
         # TODO: lock event table to prevent race condition
 
-        if not isinstance(coupon, coupon_m.Coupon):
+        # Student cannot book the same tutor at the same day
+        if is_time_valid:
+
+            local_day_start_time = start_time.astimezone(djtimezone.get_current_timezone()).replace(
+                hour = 0, minute = 0, second = 0, microsecond = 0
+            )
+            local_day_end_time = local_day_start_time + timedelta(days=1)
+
+            # if student has already book one tutorial on the sam day
+            is_time_valid = cls.objects.filter(
+                start_time__lt = local_day_end_time,
+                end_time__gt = local_day_start_time,
+                student = student,
+                tutor = tutor
+            ).count() == 0
+
+
+        if coupon is None:
+            is_coupon_valid = None
+        elif isinstance(coupon, coupon_m.Coupon):
+            is_coupon_valid = coupon.is_valid_now()
+        else:
             try:
                 coupon = coupon_m.Coupon.objects.get(code=coupon)
+                is_coupon_valid = coupon.is_valid_now()
             except coupon_m.Coupon.DoesNotExist:
                 coupon = None
-        
-        coupon_is_valid = False if coupon is None else coupon.is_valid_now()
+                is_coupon_valid = False
 
 
         tutor_fee = tutor.calc_tutorial_fee(start_time, end_time)
 
-        commission_fee = Decimal('0') if (coupon is not None and coupon_is_valid) else tutor_fee * Decimal('0.05')
+        commission_fee = Decimal('0') if is_coupon_valid else tutor_fee * Decimal('0.05')
         
-        coupon_discount =  -commission_fee if (coupon is not None and coupon_is_valid) else Decimal('0')
+        coupon_discount =  -commission_fee if is_coupon_valid else Decimal('0')
 
         total_fee = tutor_fee + commission_fee + coupon_discount
 
 
         balance = student.user.wallet.balance
 
-        payable = balance >= total_fee
+        is_payable = balance >= total_fee
 
 
-        creatable = time_is_valid and (coupon is None or coupon_is_valid) and payable
+        is_creatable = is_time_valid and (is_coupon_valid is None or is_coupon_valid is True) and is_payable
 
 
         return dict(
@@ -57,7 +79,7 @@ class Tutorial(event.Event):
 
             start_time = start_time,
             end_time = end_time,
-            time_is_valid = time_is_valid,
+            is_time_valid = is_time_valid,
 
             tutor_fee = tutor_fee,
             commission_fee = commission_fee,
@@ -65,23 +87,29 @@ class Tutorial(event.Event):
             total_fee = total_fee,
 
             coupon = coupon,
-            coupon_is_valid = coupon_is_valid,
+            is_coupon_valid = is_coupon_valid,
 
             balance = balance,
-            payable = payable,
+            is_payable = is_payable,
 
-            creatable = creatable
+            is_creatable = is_creatable
         )
         
 
     @classmethod
-    def create(cls, student, tutor, start_time, end_time, **kwargs):
+    def create(cls, student, tutor, start_time, end_time, coupon=None, **kwargs):
         """
 
         """
-        preview = cls.preview(student, tutor, start_time, end_time)
+        preview = cls.preview(
+            student = student,
+            tutor = tutor,
+            start_time = start_time,
+            end_time = end_time,
+            coupon = coupon
+        )
 
-        if not preview['creatable']:
+        if not preview['is_creatable']:
             raise cls.TutorialNotCreatableError(preview=preview)
 
         if preview['total_fee'] > Decimal('0'):
