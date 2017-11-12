@@ -1,14 +1,14 @@
 from django.test import TestCase
 
 from ..models import *
+from ..utils import get_time
 
 from . import user_test
-from . import time_utils
 
 message_data_0 = dict(
     title = 'Mt Title',
     content = 'Hello World!!!',
-    time = time_utils.get_time(13, 0)
+    time = get_time(13, 0)
 )
 
 def assert_message_equal_data(test_case, message, **data):

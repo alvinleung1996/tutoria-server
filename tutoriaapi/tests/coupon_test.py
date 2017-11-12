@@ -1,13 +1,12 @@
 from django.test import TestCase
 
 from ..models import *
-
-from . import time_utils
+from ..utils import get_time
 
 coupon_data_0 = dict(
     code = 'abcd1234',
-    start_time = time_utils.get_time(hour=0, minute=0, day_offset=-1),
-    end_time = time_utils.get_time(hour=0, minute=0, day_offset=1)
+    start_time = get_time(hour=0, minute=0, day_offset=-1),
+    end_time = get_time(hour=0, minute=0, day_offset=1)
 )
 
 def assert_coupon_equal_data(test_case, coupon, **data):

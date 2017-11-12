@@ -1,12 +1,12 @@
+from http import HTTPStatus
+from decimal import Decimal
+
 from django.views import View
 
-from ..models import Tutor, CourseCode, Review, UnavailablePeriod
+from ..models import Tutor, CourseCode, Review, Event
 
 from .api_response import ApiResponse
-
-
-from django.utils import timezone
-import datetime
+from ..utils import get_time
 
 class SearchView(View):
 
@@ -15,112 +15,104 @@ class SearchView(View):
     def get(self, request, *args, **kwargs):
 
         if not request.user.is_authenticated or not request.user.is_active:
-            return ApiResponse(message='Login required', status=403)  
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED) 
 
-        need_filter_for_coursecode = False
-        need_filter_for_subject_tag = False
-        only_availble_tutor = False
-        order = request.GET['order_by']
-        given_name = request.GET['given_name']
-        family_name = request.GET['family_name']
-        university = request.GET['university']
-        type = request.GET['type']
-        upper_bound = request.GET['upper_bound']
-        lower_bound = request.GET['lower_bound']
-        coursecode = request.GET['coursecode']
-        subject_tag = request.GET['subject_tag']
-        available_in_the_next_seven_days = request.GET['extra']
+        tutors = Tutor.objects.filter(activated=True).exclude(user__base_user=request.user)
 
+        if 'given-name' in request.GET:
+            tutors = tutors.filter(user__first_name__icontains=request.GET['given-name'])
 
-        results = Tutor.objects.all()
-        results = results.filter(activated=True).order_by('hourlyRate')
+        if 'family-name' in request.GET:
+            tutors = tutors.filter(user__last_name__icontains=request.GET['family-name'])
 
-        if order != '':
-            results = results.order_by(order)
+        if 'university' in request.GET:
+            tutors = tutors.filter(university__name__icontains=request.GET['university'])
 
-        if given_name != '':
-            results = results.filter(user__first_name=given_name)
+        if 'type' in request.GET:
+            if request.GET['type'] == 'contracted':
+                tutors = tutors.filter(type=Tutor.TYPE_CONTRACTED)
+            elif request.GET['type'] == 'private':
+                tutors = tutors.filter(type=Tutor.TYPE_PRIVATE)
 
-        if family_name != '':
-            results = results.filter(user__last_name=family_name)
+        if 'hourly-rate-min' in request.GET:
+            tutors = tutors.filter(hourly_rate__gte=Decimal(request.GET['hourly-rate-min']))
+        
+        if 'hourly-rate-max' in request.GET:
+            tutors = tutors.filter(hourly_rate__lte=Decimal(request.GET['hourly-rate-max']))
 
-        if university != '':
-            results = results.filter(university__name=university)
+        if 'course-code' in request.GET:
+            tutors = tutors.filter(course_code_set__code__icontains=request.GET['course-code'])
 
-        if type != '':
-            results = results.filter(type=type)
+        if 'subject-tags' in request.GET:
+            tutors = tutors.filter(subject_tag_set__tag__icontains=request.GET['subject-tags'])
 
-        if upper_bound != '':
-            results = results.filter(hourly_rate__lte=upper_bound)
-
-        if lower_bound != '':
-            results = results.filter(hourly_rate__gte=lower_bound)
-
-        if coursecode != '':
-            need_filter_for_coursecode = True
-
-        if subject_tag != '':
-            need_filter_for_subject_tag = True
-
-        if available_in_the_next_seven_days != '':
-            only_availble_tutor = True
-
+        if 'free-only' in request.GET:
+            free_only = bool(request.GET['free-only'])
+        else:
+            free_only = False
 
         data = []
 
-        for tutor in results:
+        for tutor in tutors:
             user = tutor.user
 
             satisfy = True
 
-            subject_tags = list(map(lambda t: t.tag, tutor.subject_tag_set.all()))
-            course_codes = list(map(lambda c: c.code, tutor.course_code_set.all()))
+            if free_only:
 
-            if need_filter_for_coursecode == True:
-                if coursecode not in course_codes:
-                    satisfy = False
+                is_free = False
 
-            if need_filter_for_subject_tag == True:
-                if subject_tag not in subject_tags:
-                    satisfy = False
+                time_lower_bound = get_time(hour=0, minute=0)
+                time_upper_bound = get_time(hour=0, minute=0, day_offset=7)
 
-            if only_availble_tutor == True:
-                is_availble = False
-                time_lower_bound = timezone.now()
-                time_upper_bound = time_lower_bound + datetime.timedelta(days=7)
-                events = UnavailablePeriod.objects.filter(tutor=tutor)
-                events = events.filter(start_time__lte=time_upper_bound)
-                events = events.filter(end_time__gte=time_lower_bound).order_by('start_time')
+                events = Event.objects.filter(
+                    user_set__tutor = tutor,
+                    start_time__lt = time_upper_bound,
+                    end_time__gt = time_lower_bound
+                ).order_by('start_time', 'end_time')
+
                 for event in events:
                     if event.start_time > time_lower_bound:
-                        is_availble = True
+                        is_free = True
                         break
                     else:
-                        time_lower_bound = event.end_time 
-                if time_lower_bound < time_upper_bound:
-                    is_availble = True
-                if is_availble != True:
-                    satisfy = False
+                        time_lower_bound = max(time_lower_bound, event.end_time)
+                
+                if not is_free:
+                    is_free = time_lower_bound < time_upper_bound
+                
+                satisfy = satisfy and is_free
 
-            if satisfy == True:
+
+            if satisfy:
+
                 item = dict(
                     username = user.username,
                     givenName = user.given_name,
                     familyName = user.family_name,
+                    fullName = user.full_name,
                     avatar = user.avatar,
                     hourlyRate = tutor.hourly_rate,
                     university = tutor.university.name,
-                    courseCodes = course_codes,
-                    subjectTags = subject_tags,
+                    courseCodes = [c.code for c in tutor.course_code_set.all()],
+                    subjectTags = [t.tag for t in tutor.subject_tag_set.all()],
                     averageReviewScore = -1
                 )
             
                 if Review.objects.filter(tutorial__tutor=tutor).count() >= 3:
-                    tutor['averageReviewScore'] = tutor.average_review_score
+                    item['averageReviewScore'] = tutor.average_review_score
             
                 data.append(item)
+        
+        if 'ordered-by' in request.GET:
+            reverse = 'order' in request.GET and request.GET['order'] == 'descending'
 
-        return ApiResponse(dict(data=data))
+            if request.GET['ordered-by'] == 'hourly-rate':
+                data.sort(key=lambda i: i['hourlyRate'], reverse=reverse)
+            elif request.GET['ordered-by'] == 'average-review-score':
+                data.sort(key=lambda i: i['averageReviewScore'], reverse=reverse)
+
+        return ApiResponse(data=data)
 
 
 class ProfileView(View):
