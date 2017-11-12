@@ -45,6 +45,14 @@ class User(BaseUser):
     def family_name(self, value):
         self.user.last_name = value
 
+    @property
+    def full_name(self):
+        return self.get_full_name()
+
+
+    @property
+    def roles(self):
+        return list(filter(lambda r: r is not None, map(lambda r: self.get_role(r), [student.Student, tutor.Tutor, company.Company])))
 
     def get_role(self, role_type):
         if role_type is student.Student and hasattr(self, 'student'):

@@ -11,7 +11,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.views import View
 from django.http import HttpResponse
 
-from ..models import User, Student, Tutor, Tutorial, UnavailablePeriod
+from ..models import User, Student, Tutor, Company, Tutorial, UnavailablePeriod
 
 from .api_response import ApiResponse
 
@@ -22,53 +22,65 @@ def _user_to_json(user):
         username = user.username,
         givenName = user.given_name,
         familyName = user.family_name,
+        fullName = user.full_name,
+        phoneNumber = user.phone_number,
+        email = user.email,
+        roles = [],
         avatar = user.avatar
         # TODO: more data
     )
+    for role in user.roles:
+        if isinstance(role, Student):
+            json['roles'].append('student')
+        elif isinstance(role, Tutor):
+            json['roles'].append('tutor')
+        elif isinstance(role, Company):
+            json['roles'].append('company')
+
     return json
 
 class ProfileView(View):
 
-    http_method_names = ['head', 'get']
+    http_method_names = ['get']
 
-    def head(self, request, username, *args, **kwargs):
+    # def head(self, request, username, *args, **kwargs):
 
-        if (not request.user.is_authenticated
-                or not request.user.is_active
-                or (username != 'me' and request.user.username != username)):
-            return HttpResponse(status=HTTPStatus.FORBIDDEN)
+    #     if (not request.user.is_authenticated
+    #             or not request.user.is_active
+    #             or (username != 'me' and request.user.username != username)):
+    #         return HttpResponse(status=HTTPStatus.FORBIDDEN)
 
-        try:
-            # request.user is django.contrib.auth.models.User
-            # request.user.user is tutoriaapi.models.User
-            user = request.user.user
-        except User.DoesNotExist:
-            return HttpResponse(status=404)
+    #     try:
+    #         # request.user is django.contrib.auth.models.User
+    #         # request.user.user is tutoriaapi.models.User
+    #         user = request.user.user
+    #     except User.DoesNotExist:
+    #         return HttpResponse(status=404)
 
-        # return status code = 200
-        return HttpResponse()
+    #     # return status code = 200
+    #     return HttpResponse()
 
 
     def get(self, request, username, *args, **kwargs):
 
         if not request.user.is_authenticated:
-            return ApiResponse(message='Not authenticated', status=403)
+            return ApiResponse(error_message='Not authenticated', status=HTTPStatus.UNAUTHORIZED)
 
         elif not request.user.is_active:
-            return ApiResponse(message='Not active', status=403)
+            return ApiResponse(error_message='Not active', status=HTTPStatus.UNAUTHORIZED)
         
         elif username != 'me' and request.user.username != username:
-            return ApiResponse(message='Access forbidened', status=403)
+            return ApiResponse(error_message='Access forbidened', status=HTTPStatus.FORBIDDEN)
             
         try:
             # request.user is django.contrib.auth.models.User
             # request.user.user is tutoriaapi.models.User
             user = request.user.user
         except User.DoesNotExist:
-            return ApiResponse(message='No user profile found', status=404)
+            return ApiResponse(error_message='No user profile found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         response = _user_to_json(user)
-        return ApiResponse(response)
+        return ApiResponse(data=response)
     
 
 
@@ -84,36 +96,36 @@ class LoginSessionView(View):
                 try:
                     user = request.user.user
                 except User.DoesNotExist:
-                    return ApiResponse(message='No user profile found', status=HTTPStatus.UNAUTHORIZED)
+                    return ApiResponse(error_message='No user profile found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
                 response = _user_to_json(user)
-                return ApiResponse(response)
+                return ApiResponse(data=response)
             else:
                 logout(request)
         
         try:
             data = json.loads(request.body)
         except json.JSONDecodeError:
-            return ApiResponse(message='Invalid login data', status=403)
+            return ApiResponse(error_message='Invalid login data', status=HTTPStatus.BAD_REQUEST)
 
         if 'password' not in data:
-            return ApiResponse(message='Password required', status=403)
+            return ApiResponse(error_message='Password required', status=HTTPStatus.BAD_REQUEST)
         
         base_user = authenticate(username=username, password=data['password'])
         if base_user is None:
-            return ApiResponse(message='Wrong login information', status=404)
+            return ApiResponse(error_message='Wrong login information', status=HTTPStatus.UNAUTHORIZED)
 
         if not base_user.is_active:
-            return ApiResponse(message='User not active', status=403)
+            return ApiResponse(error_message='User not active', status=HTTPStatus.UNAUTHORIZED)
 
         try:
             user = base_user.user
         except User.DoesNotExist:
-            return ApiResponse(message='No user profile found', status=404)
+            return ApiResponse(error_message='No user profile found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         login(request, base_user)
         
         response = _user_to_json(user)
-        return ApiResponse(response)
+        return ApiResponse(data=response)
 
 
     def delete(self, request, username, *args, **kwargs):
@@ -121,7 +133,7 @@ class LoginSessionView(View):
             return ApiResponse(message='Not logged in')
 
         elif username != 'me' and username != request.user.username:
-            return ApiResponse(message='Delete forbidened', status=HTTPStatus.FORBIDDEN)
+            return ApiResponse(error_message='Delete forbidened', status=HTTPStatus.FORBIDDEN)
 
         logout(request)
         return ApiResponse(message='Logout success')
