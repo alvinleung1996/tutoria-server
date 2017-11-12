@@ -3,15 +3,18 @@ from django.test import TestCase
 from ..models import *
 
 from . import user_test
+from . import time_utils
 
 message_data_0 = dict(
     title = 'Mt Title',
-    content = 'Hello World!!!'
+    content = 'Hello World!!!',
+    time = time_utils.get_time(13, 0)
 )
 
 def assert_message_equal_data(test_case, message, **data):
     test_case.assertEqual(message.title, data['title'])
     test_case.assertEqual(message.content, data['content'])
+    test_case.assertEqual(message.time, data['time'])
 
 class MessageTest(TestCase):
 

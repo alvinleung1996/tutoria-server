@@ -28,7 +28,10 @@ class Tutor(models.Model):
     TYPE_CONTRACTED = 'CO'
 
     @classmethod
-    def create(cls, user, type, biography, hourly_rate, university, course_codes, subject_tags=[], activated=True):
+    def create(cls, user, type, biography, hourly_rate, university, course_codes, subject_tags=None, activated=True):
+        if subject_tags is None:
+            subject_tags = []
+        
         tutor = cls.objects.create(
             user = user,
             type = type,

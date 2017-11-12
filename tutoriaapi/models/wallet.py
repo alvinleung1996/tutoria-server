@@ -37,7 +37,7 @@ class Wallet(models.Model):
                 self.refresh_from_db()
                 #notification when money move out of wallet
                 message.Message.create(
-                    send_user = user.User.objects.get(company__isnull=False),
+                    send_user = None,
                     receive_user = self.user,
                     title = 'Money move out of your wallet',
                     content = 'Payment amount:' + str(amount) + ' deducted'
@@ -54,7 +54,7 @@ class Wallet(models.Model):
             self.refresh_from_db()
             #notification when money move into the wallet
             message.Message.create(
-                send_user = user.User.objects.get(company__isnull=False),
+                send_user = None,
                 receive_user = self.user,
                 title = 'Money move into your wallet',
                 content = 'Payment amount:' + str(amount) + ' received'
