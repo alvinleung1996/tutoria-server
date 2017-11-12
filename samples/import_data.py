@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from ..models import *
+from tutoriaapi.models import *
 
 from . import avatars
 
