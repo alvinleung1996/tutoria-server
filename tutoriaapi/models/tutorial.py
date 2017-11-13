@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.db import models
 from django.utils import timezone as djtimezone
@@ -23,11 +23,11 @@ class Tutorial(event.Event):
 
         """
         # Check if time is valid
-        is_time_valid = student.is_valid_tutorial_time(start_time, end_time) and tutor.is_valid_tutorial_time(start_time, end_time)
+        time_valid = student.is_valid_tutorial_time(start_time, end_time) and tutor.is_valid_tutorial_time(start_time, end_time)
         # TODO: lock event table to prevent race condition
 
         # Student cannot book the same tutor at the same day
-        if is_time_valid:
+        if time_valid:
 
             local_day_start_time = start_time.astimezone(djtimezone.get_current_timezone()).replace(
                 hour = 0, minute = 0, second = 0, microsecond = 0
@@ -35,32 +35,33 @@ class Tutorial(event.Event):
             local_day_end_time = local_day_start_time + timedelta(days=1)
 
             # if student has already book one tutorial on the sam day
-            is_time_valid = cls.objects.filter(
+            time_valid = cls.objects.filter(
                 start_time__lt = local_day_end_time,
                 end_time__gt = local_day_start_time,
                 student = student,
-                tutor = tutor
+                tutor = tutor,
+                cancelled = False,
             ).count() == 0
 
 
         if coupon is None:
-            is_coupon_valid = None
+            coupon_valid = None
         elif isinstance(coupon, coupon_m.Coupon):
-            is_coupon_valid = coupon.is_valid_now()
+            coupon_valid = coupon.is_valid_now()
         else:
             try:
                 coupon = coupon_m.Coupon.objects.get(code=coupon)
-                is_coupon_valid = coupon.is_valid_now()
+                coupon_valid = coupon.is_valid_now()
             except coupon_m.Coupon.DoesNotExist:
                 coupon = None
-                is_coupon_valid = False
+                coupon_valid = False
 
 
         tutor_fee = tutor.calc_tutorial_fee(start_time, end_time)
 
-        commission_fee = Decimal('0') if is_coupon_valid else tutor_fee * Decimal('0.05')
+        commission_fee = Decimal('0') if coupon_valid else tutor_fee * Decimal('0.05')
         
-        coupon_discount =  -commission_fee if is_coupon_valid else Decimal('0')
+        coupon_discount =  -commission_fee if coupon_valid else Decimal('0')
 
         total_fee = tutor_fee + commission_fee + coupon_discount
 
@@ -70,7 +71,7 @@ class Tutorial(event.Event):
         is_payable = balance >= total_fee
 
 
-        is_creatable = is_time_valid and (is_coupon_valid is None or is_coupon_valid is True) and is_payable
+        creatable = time_valid and (coupon_valid is None or coupon_valid is True) and is_payable
 
 
         return dict(
@@ -79,7 +80,7 @@ class Tutorial(event.Event):
 
             start_time = start_time,
             end_time = end_time,
-            is_time_valid = is_time_valid,
+            time_valid = time_valid,
 
             tutor_fee = tutor_fee,
             commission_fee = commission_fee,
@@ -87,12 +88,12 @@ class Tutorial(event.Event):
             total_fee = total_fee,
 
             coupon = coupon,
-            is_coupon_valid = is_coupon_valid,
+            coupon_valid = coupon_valid,
 
             balance = balance,
             is_payable = is_payable,
 
-            is_creatable = is_creatable
+            creatable = creatable
         )
         
 
@@ -109,7 +110,7 @@ class Tutorial(event.Event):
             coupon = coupon
         )
 
-        if not preview['is_creatable']:
+        if not preview['creatable']:
             raise cls.TutorialNotCreatableError(preview=preview)
 
         if preview['total_fee'] > Decimal('0'):
@@ -137,6 +138,14 @@ class Tutorial(event.Event):
             student_to_company_transaction = student_to_company_transaction
         )
         tutorial.user_set.set([student.user, tutor.user])
+
+        message.Message.create(
+            send_user = None,
+            receive_user = tutor.user,
+            title = 'New tutorial booking',
+            content = 'new tutorial booking: ' + str(tutorial)
+            # TODO: update message content and title
+        )
 
         return tutorial
 
@@ -172,6 +181,7 @@ class Tutorial(event.Event):
     def total_fee(self):
         return self.tutor_fee + self.commission_fee + self.coupon_discount
 
+
     
     def pay_to_tutor(self):
         if (self.tutor_fee == Decimal('0')):
@@ -188,22 +198,43 @@ class Tutorial(event.Event):
         self.save()
         
 
-    def refund(self):
-        if (self.total_fee == Decimal('0')):
-            return
+    @property
+    def cancellable(self):
+        if self.cancelled:
+            return False
 
-        if self.company_to_tutor_transaction is not None:
-            raise ApiException('Tutorial fee has been paid to tutor')
+        return (self.start_time - datetime.now(tz=djtimezone.get_default_timezone())) >= timedelta(days=1)
+    
+
+    def cancel(self):
+        if (self.start_time - datetime.now(tz=djtimezone.get_default_timezone())) < timedelta(days=1):
+            raise ApiException(message='Cannot cancel tutorial within 24hrs before its start time')
         
-        if self.company_to_student_transaction is not None:
-            raise ApiException('Tutorial fee has been funded')
+        if (self.total_fee > Decimal('0')):
+
+            if self.company_to_tutor_transaction is not None:
+                raise ApiException(message='Tutorial fee has already been paid to tutor')
+            
+            if self.company_to_student_transaction is not None:
+                raise ApiException(message='Tutorial fee has already been funded')
+
+            self.company_to_student_transaction = transaction.Transaction.create(
+                withdraw = user.User.objects.get(company__isnull=False),
+                deposit = self.student.user,
+                amount = self.total_fee
+            )
         
-        self.company_to_student_transaction = transaction.Transaction.create(
-            withdraw = user.User.objects.get(company__isnull=False),
-            deposit = self.tutor.user,
-            amount = self.total_fee
-        )
+        self.cancelled = True
+
         self.save()
+
+        message.Message.create(
+            send_user = None,
+            receive_user = self.student.user,
+            title = 'Booking cancelled',
+            content = 'You booking has already been cancelled' + str(self)
+            # TODO: update message content and title
+        )
 
 
     def __str__(self):

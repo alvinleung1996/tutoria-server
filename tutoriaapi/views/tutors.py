@@ -1,14 +1,16 @@
 from http import HTTPStatus
 from decimal import Decimal
+from datetime import datetime
 
 from django.views import View
+from django.utils import timezone as djtimezone
 
-from ..models import Tutor, CourseCode, Review, Event
+from ..models import Tutor, CourseCode, Review, Event, Tutorial
 
 from .api_response import ApiResponse
 from ..utils import get_time
 
-class SearchView(View):
+class TutorSetSearchView(View):
 
     http_method_names = ['get']
 
@@ -17,7 +19,7 @@ class SearchView(View):
         if not request.user.is_authenticated or not request.user.is_active:
             return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
 
-        tutors = Tutor.objects.filter(activated=True).exclude(user__base_user=request.user)
+        tutors = Tutor.objects.filter(activated=True).exclude(user=request.user)
 
         if 'given-name' in request.GET:
             tutors = tutors.filter(user__first_name__icontains=request.GET['given-name'])
@@ -115,7 +117,7 @@ class SearchView(View):
         return ApiResponse(data=data)
 
 
-class ProfileView(View):
+class TutorView(View):
 
     http_method_names = ['get']
 
@@ -128,6 +130,9 @@ class ProfileView(View):
             tutor = Tutor.objects.get(user__username=tutor_username)
         except Tutor.DoesNotExist:
             return ApiResponse(error_message='Profile not found', status=HTTPStatus.NOT_FOUND)
+
+        if not tutor.activated:
+            return ApiResponse(error_message='Tutor not activated', status=HTTPStatus.FORBIDDEN)
 
         tutor_user = tutor.user
 
@@ -151,6 +156,16 @@ class ProfileView(View):
             events = []
         )
 
+
+        if Tutorial.objects.filter(
+            end_time__gt = datetime.now(tz=djtimezone.get_default_timezone()),
+            student__user = request.user,
+            tutor = tutor,
+            cancelled = False
+        ).count() > 0:
+            data['phoneNumber'] = tutor_user.phone_number
+
+
         for review in Review.objects.filter(tutorial__tutor=tutor):
             item = dict(
                 score = review.score,
@@ -161,12 +176,15 @@ class ProfileView(View):
                 item['student'] = dict(
                     givenName = review.tutorial.student.user.given_name,
                     familyName = review.tutorial.student.user.family_name,
-                    fullName = review.tutorial.student.user.full_name
+                    fullName = review.tutorial.student.user.full_name,
+                    avatar = review.tutorial.student.user.avatar
                 )
             data['reviews'].append(item)
 
+
         if len(data['reviews']) >= 3:
             data['averageReviewScore'] = tutor.average_review_score
+
 
         for event in tutor_user.event_set.filter(
             cancelled = False,
@@ -177,5 +195,6 @@ class ProfileView(View):
                 endTime = event.end_time.isoformat(timespec='microseconds')
             )
             data['events'].append(item)
+
 
         return ApiResponse(data)

@@ -9,9 +9,9 @@ from django.contrib.auth.views import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from django.views import View
-from django.http import HttpResponse
 
 from ..models import User, Student, Tutor, Company, Tutorial, UnavailablePeriod
+from ..utils.time_utils import get_time
 
 from .api_response import ApiResponse
 
@@ -39,27 +39,9 @@ def _user_to_json(user):
 
     return json
 
-class ProfileView(View):
+class UserView(View):
 
     http_method_names = ['get']
-
-    # def head(self, request, username, *args, **kwargs):
-
-    #     if (not request.user.is_authenticated
-    #             or not request.user.is_active
-    #             or (username != 'me' and request.user.username != username)):
-    #         return HttpResponse(status=HTTPStatus.FORBIDDEN)
-
-    #     try:
-    #         # request.user is django.contrib.auth.models.User
-    #         # request.user.user is tutoriaapi.models.User
-    #         user = request.user.user
-    #     except User.DoesNotExist:
-    #         return HttpResponse(status=404)
-
-    #     # return status code = 200
-    #     return HttpResponse()
-
 
     def get(self, request, username, *args, **kwargs):
 
@@ -85,7 +67,7 @@ class ProfileView(View):
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class LoginSessionView(View):
+class UserLoginSessionView(View):
 
     http_method_names = ['put', 'delete']
 
@@ -97,8 +79,8 @@ class LoginSessionView(View):
                     user = request.user.user
                 except User.DoesNotExist:
                     return ApiResponse(error_message='No user profile found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
-                response = _user_to_json(user)
-                return ApiResponse(data=response)
+
+                return ApiResponse(message='Already logged in')
             else:
                 logout(request)
         
@@ -124,8 +106,7 @@ class LoginSessionView(View):
 
         login(request, base_user)
         
-        response = _user_to_json(user)
-        return ApiResponse(data=response)
+        return ApiResponse(message='login success')
 
 
     def delete(self, request, username, *args, **kwargs):
@@ -140,7 +121,7 @@ class LoginSessionView(View):
 
 
 
-class EventsView(View):
+class UserEventsView(View):
 
     http_method_names = ['get']
 
@@ -148,42 +129,34 @@ class EventsView(View):
 
         if (not request.user.is_authenticated or not request.user.is_active
             or (username != 'me' and request.user.username != username)):
-            return ApiResponse(message='Login required', status=HTTPStatus.FORBIDDEN)
+            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
         
         try:
             user = request.user.user
         except User.DoesNotExist:
-            return ApiResponse(message='Profile not found', status=404)
+            return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         data = []
         
-        for event in user.event_set.filter(cancelled=False):
+        for event in user.event_set.filter(
+            cancelled = False,
+            start_time__gte = get_time(hour=0, minute=0)    
+        ):
             concrete_event = event.concrete_event
 
-            item = dict(
-                id = concrete_event.id,
-                startTime = concrete_event.start_time.isoformat(timespec='microseconds'),
-                endTime = concrete_event.end_time.isoformat(timespec='microseconds')
-            )
-
             if isinstance(concrete_event, Tutorial):
-                item['type'] = 'tutorial'
-                item['student'] = dict(
-                    givenName = concrete_event.student.user.given_name,
-                    familyName = concrete_event.student.user.family_name
-                )
-                item['tutor'] = dict(
-                    givenName = concrete_event.tutor.user.given_name,
-                    familyName = concrete_event.tutor.user.family_name
-                )
-
+                event_type = 'tutorial'
             elif isinstance(concrete_event, UnavailablePeriod):
-                item['type'] = 'unavailablePeriod'
-                item['tutor'] = dict(
-                    givenName = concrete_event.tutor.user.given_name,
-                    familyName = concrete_event.tutor.user.family_name
-                )
-            
+                event_type = 'unavailablePeriod'
+            else:
+                event_type = 'unknown'
+
+            item = dict(
+                id = event.id,
+                startTime = event.start_time.isoformat(timespec='microseconds'),
+                endTime = event.end_time.isoformat(timespec='microseconds'),
+                type = event_type
+            )
             data.append(item)
 
-        return ApiResponse(dict(data=data))
+        return ApiResponse(data=data)

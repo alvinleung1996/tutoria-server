@@ -34,14 +34,7 @@ class Transaction(models.Model):
 
     time = models.DateTimeField(null=True, default=None)
 
-
-    # A method to retrieve who is the transaction creator
-    # A tutorial? or something else
-    #
-    # @property
-    # def reason(self):
-    #     if hasattr(self, 'tutorial'):
-    #         return self.tutorial
-    #     else:
-    #         return None
+    
+    def __str__(self):
+        return 'Transaction: from "{self.withdraw_wallet.user.full_name}" to "{self.deposit_wallet.user.full_name}": ${self.amount}'.format(self=self)
         

@@ -34,5 +34,6 @@ class Message(models.Model):
     read = models.BooleanField(default=False)
 
     def __str__(self):
-        return 'From "{0}" to "{1}": {2}'.format(self.send_user.get_full_name(), self.receive_user.get_full_name(), self.title)
+        send_user_name = self.send_user.full_name if self.send_user is not None else 'System'
+        return 'From "{0}" to "{1}": {2}'.format(send_user_name, self.receive_user.full_name, self.title)
     

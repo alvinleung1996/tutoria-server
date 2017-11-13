@@ -99,7 +99,7 @@ class TutorialTest(TestCase):
         self.assertIsNone(tutorial.company_to_tutor_transaction)
         self.assertIsNone(tutorial.company_to_student_transaction)
 
-        tutorial.refund()
+        tutorial.cancel()
 
         self.assertEqual(user_0.wallet.balance, Decimal('0'))
         self.assertEqual(user_1.wallet.balance, Decimal('0'))

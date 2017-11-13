@@ -34,4 +34,7 @@ admin.site.register(Coupon)
 admin.site.register(Message)
 
 admin.site.register(Wallet)
-admin.site.register(Transaction)
+
+class TransactionAdmin(admin.ModelAdmin):
+    list_display = ('withdraw_wallet', 'deposit_wallet', 'time', 'amount')
+admin.site.register(Transaction, TransactionAdmin)
