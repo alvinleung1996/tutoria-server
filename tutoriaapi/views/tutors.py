@@ -137,13 +137,17 @@ class ProfileView(View):
             familyName = tutor_user.family_name,
             fullName = tutor_user.full_name,
             avatar = tutor_user.avatar,
+
+            type = 'contracted' if tutor.type == Tutor.TYPE_CONTRACTED else 'privated',
             hourlyRate = tutor.hourly_rate,
             university = tutor.university.name,
             courseCodes = [c.code for c in tutor.course_code_set.all()],
             subjectTags = [t.tag for t in tutor.subject_tag_set.all()],
             averageReviewScore = -1,
             biography = tutor.biography,
+
             reviews = [],
+
             events = []
         )
 

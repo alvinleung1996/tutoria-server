@@ -105,8 +105,8 @@ class Tutor(models.Model):
 
         # if the start_time is not HH:00 or HH:30 (depending on the tutor type)
         if (start_time.second != 0 or start_time.microsecond != 0
-                or (self.type == self.TYPE_CONTRACTED and start_time.minute not in [0])
-                or (self.type == self.TYPE_PRIVATE and start_time.minute not in [0, 30])):
+                or (self.type == self.TYPE_CONTRACTED and start_time.minute not in [0, 30])
+                or (self.type == self.TYPE_PRIVATE and start_time.minute not in [0])):
             return False
 
         if (end_time - start_time) not in ([timedelta(minutes=30)] if (self.type == self.TYPE_CONTRACTED) else [timedelta(minutes=30), timedelta(minutes=60)]):
