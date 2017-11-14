@@ -22,7 +22,7 @@ class cronJob(CronJobBase):
         print("Ending all sessions")
         for tutorial in Tutorial.objects.filter(
             cancelled=False, 
-            fee__gt=Decimal('0'),
+            tutor_fee__gt=Decimal('0'),
             end_time__lte=datetime.now(tz=timezone.utc),
             company_to_tutor_transaction__isnull=True
         ):
