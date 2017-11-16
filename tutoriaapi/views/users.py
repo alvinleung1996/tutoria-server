@@ -1,6 +1,6 @@
 import json
 from decimal import Decimal
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from http import HTTPStatus
 
 from dateutil import parser
@@ -10,10 +10,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from django.views import View
 
-from ..models import User, Student, Tutor, Company, Tutorial, UnavailablePeriod
+from ..models import User, Student, Tutor, Company, Tutorial, UnavailablePeriod, Transaction
 from ..utils.time_utils import get_time
 
 from .api_response import ApiResponse
+
+from django.db.models import Q
 
 # https://docs.djangoproject.com/en/1.11/topics/auth/default/#authentication-in-web-requests
 
@@ -159,4 +161,35 @@ class UserEventsView(View):
             )
             data.append(item)
 
+        return ApiResponse(data=data)
+
+class UserTransactionsView(View):
+
+    http_method_names = ['get']
+
+    def get(self, request, username, *args, **kwargs):
+
+        if (not request.user.is_authenticated or not request.user.is_active
+            or (username != 'me' and request.user.username != username)):
+            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
+        
+        try:
+            user = request.user.user
+        except User.DoesNotExist:
+            return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        data = []
+
+        for transaction in Transaction.objects.filter(
+            Q(withdraw_wallet=user.wallet) | Q(deposit_wallet=user.wallet),
+            time__gte=datetime.now(tz=timezone.utc)-timedelta(days=30)
+        ).order_by('-time'):
+        # '-' for descending order
+            item = dict(
+                time = transaction.time.date(),
+                amount = transaction.amount,
+                withdrawFrom = transaction.withdraw_wallet.user.full_name,
+                depositTo = transaction.deposit_wallet.user.full_name
+            )
+            data.append(item)
         return ApiResponse(data=data)
