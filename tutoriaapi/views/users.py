@@ -186,10 +186,56 @@ class UserTransactionsView(View):
         ).order_by('-time'):
         # '-' for descending order
             item = dict(
-                time = transaction.time.date(),
-                amount = transaction.amount,
-                withdrawFrom = transaction.withdraw_wallet.user.full_name,
-                depositTo = transaction.deposit_wallet.user.full_name
+                time = transaction.time.isoformat(timespec='microseconds'),
+                amount = str(transaction.amount)
             )
+            if transaction.withdraw_wallet is not None:
+                item['withdrawFrom'] = transaction.withdraw_wallet.user.full_name
+            if transaction.deposit_wallet is not None:
+                item['depositTo'] = transaction.deposit_wallet.user.full_name
             data.append(item)
         return ApiResponse(data=data)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UserWalletsView(View):
+
+    http_method_names = ['post']
+
+    def post(self, request, username, *args, **kwargs):
+
+        if (not request.user.is_authenticated or not request.user.is_active
+            or (username != 'me' and request.user.username != username)):
+            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
+        
+        try:
+            user = request.user.user
+        except User.DoesNotExist:
+            return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return ApiResponse(error_message='Invalid data', status=HTTPStatus.BAD_REQUEST)
+
+        if 'amount' not in data:
+            return ApiResponse(error_message='Amount required', status=HTTPStatus.BAD_REQUEST)
+        
+        changeAmount = Decimal(data['amount'])
+
+        if changeAmount == Decimal('0'):
+            return ApiResponse(error_message='Amount required', status=HTTPStatus.BAD_REQUEST)
+        
+        if changeAmount > Decimal('0'):
+            Transaction.create(
+                withdraw = None,
+                deposit = user,
+                amount = abs(changeAmount)
+            )
+            return ApiResponse(message='deposit success')
+        else:
+            Transaction.create(
+                withdraw = user,
+                deposit = None,
+                amount = abs(changeAmount)
+            )
+            return ApiResponse(message='withdraw success')
