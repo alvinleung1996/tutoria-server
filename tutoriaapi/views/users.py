@@ -224,7 +224,7 @@ class UserWalletsView(View):
 
         if changeAmount == Decimal('0'):
             return ApiResponse(error_message='Amount required', status=HTTPStatus.BAD_REQUEST)
-        
+
         if changeAmount > Decimal('0'):
             Transaction.create(
                 withdraw = None,
@@ -233,9 +233,12 @@ class UserWalletsView(View):
             )
             return ApiResponse(message='deposit success')
         else:
-            Transaction.create(
-                withdraw = user,
-                deposit = None,
-                amount = abs(changeAmount)
-            )
-            return ApiResponse(message='withdraw success')
+            try:
+                Transaction.create(
+                    withdraw = user,
+                    deposit = None,
+                    amount = abs(changeAmount)
+                )
+                return ApiResponse(message='withdraw success')
+            except user.wallet.InsufficientBalanceError:
+                return ApiResponse(error_message='Insufficient balance error', status=HTTPStatus.INTERNAL_SERVER_ERROR)
