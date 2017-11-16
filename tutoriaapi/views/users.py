@@ -229,7 +229,7 @@ class UserWalletsView(View):
             Transaction.create(
                 withdraw = None,
                 deposit = user,
-                amount = abs(changeAmount)
+                amount = changeAmount
             )
             return ApiResponse(message='deposit success')
         else:
@@ -237,8 +237,8 @@ class UserWalletsView(View):
                 Transaction.create(
                     withdraw = user,
                     deposit = None,
-                    amount = abs(changeAmount)
+                    amount = -changeAmount
                 )
                 return ApiResponse(message='withdraw success')
             except user.wallet.InsufficientBalanceError:
-                return ApiResponse(error_message='Insufficient balance error', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+                return ApiResponse(error_message='Insufficient balance error', status=HTTPStatus.FORBIDDEN)
