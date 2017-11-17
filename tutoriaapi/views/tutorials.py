@@ -1,6 +1,6 @@
 import json
 from decimal import Decimal
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
 from dateutil import parser
@@ -221,16 +221,29 @@ class ReviewView(View):
         if request.user.username != tutorial.student.user.username:
             return ApiResponse(error_message='Cannot review this tutorial', status=HTTPStatus.FORBIDDEN)
 
+        if tutorial.cancelled:
+            return ApiResponse(error_message='Invalid tutorial', status=HTTPStatus.FORBIDDEN)
+
+        if tutorial.end_time > datetime.now(tz=timezone.utc):
+            return ApiResponse(error_message='Incomplete tutorial', status=HTTPStatus.FORBIDDEN)
+
         try:
             data = json.loads(request.body)
         except json.JSONDecodeError:
             return ApiResponse(error_message='Invalid data', status=HTTPStatus.BAD_REQUEST)
         
         if hasattr(tutorial,'review'):
-            return ApiResponse(error_message='Already reviewed', status=HTTPStatus.BAD_REQUEST)
+            return ApiResponse(error_message='Already reviewed', status=HTTPStatus.FORBIDDEN)
         else:
             if 'score' not in data:
                 return ApiResponse(error_message='Score required', status=HTTPStatus.BAD_REQUEST)
+            try:
+                intScore = int(data['score'])
+                if intScore > 5 or intScore < 0:
+                    return ApiResponse(error_message='Score out of range', status=HTTPStatus.FORBIDDEN)
+            except:
+                return ApiResponse(error_message='Invalid score', status=HTTPStatus.BAD_REQUEST)
+
             if 'comment' not in data:
                 return ApiResponse(error_message='Comment required', status=HTTPStatus.BAD_REQUEST)
             if 'anonymous' not in data:
@@ -238,7 +251,7 @@ class ReviewView(View):
             Review.create(
                 tutorial = tutorial,
                 comment = data['comment'],
-                # score = data['score'],
+                score = data['score'],
                 anonymous = data['anonymous']
             )
-            return ApiResponse(error_message='Review success')
+            return ApiResponse(message='Review success')
