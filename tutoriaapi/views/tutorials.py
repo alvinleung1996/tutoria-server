@@ -10,7 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 from django.http import HttpResponse
 
-from ..models import Student, Tutor, Tutorial
+from ..models import Student, Tutor, Tutorial, Review
 
 from .api_response import ApiResponse
 from ..api_exception import ApiException
@@ -202,4 +202,43 @@ class TutorialView(View):
             return ApiResponse(error_message='Cannot cancel tutorial: '+e.message, status=HTTPStatus.FORBIDDEN)
         
         return ApiResponse(message='Success')
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ReviewView(View):
+
+    http_method_names = ['post']
+
+    def post(self, request, tutorial_id, *args, **kwargs):
+
+        if not request.user.is_authenticated or not request.user.is_active:
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
         
+        try:
+            tutorial = Tutorial.objects.get(id=tutorial_id)
+        except Tutorial.DoesNotExist:
+            return ApiResponse(error_message='Cannot find event with id: {id}'.format(id=tutorial_id), status=HTTPStatus.NOT_FOUND)
+
+        if request.user.username != tutorial.student.user.username:
+            return ApiResponse(error_message='Cannot review this tutorial', status=HTTPStatus.FORBIDDEN)
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return ApiResponse(error_message='Invalid data', status=HTTPStatus.BAD_REQUEST)
+        
+        if hasattr(tutorial,'review'):
+            return ApiResponse(error_message='Already reviewed', status=HTTPStatus.BAD_REQUEST)
+        else:
+            if 'score' not in data:
+                return ApiResponse(error_message='Score required', status=HTTPStatus.BAD_REQUEST)
+            if 'comment' not in data:
+                return ApiResponse(error_message='Comment required', status=HTTPStatus.BAD_REQUEST)
+            if 'anonymous' not in data:
+                return ApiResponse(error_message='Anonymous required', status=HTTPStatus.BAD_REQUEST)
+            Review.create(
+                tutorial = tutorial,
+                comment = data['comment'],
+                # score = data['score'],
+                anonymous = data['anonymous']
+            )
+            return ApiResponse(error_message='Review success')
