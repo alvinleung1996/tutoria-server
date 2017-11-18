@@ -160,3 +160,47 @@ class UserEventsView(View):
             data.append(item)
 
         return ApiResponse(data=data)
+
+
+
+class ChangePersonalDetails(View):
+    http_method_names = ['get']
+
+    def get(self, request, username, *args, **kwargs):
+
+        if not request.user.is_authenticated:
+            return ApiResponse(error_message='Not authenticated', status=HTTPStatus.UNAUTHORIZED)
+
+        elif not request.user.is_active:
+            return ApiResponse(error_message='Not active', status=HTTPStatus.UNAUTHORIZED)
+        
+        elif username != 'me' and request.user.username != username:
+            return ApiResponse(error_message='Access forbidened', status=HTTPStatus.FORBIDDEN)
+            
+        try:
+            # request.user is django.contrib.auth.models.User
+            # request.user.user is tutoriaapi.models.User
+            user = request.user.user
+        except User.DoesNotExist:
+            return ApiResponse(error_message='No user profile found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        if 'username' in request.GET:
+            request.user.update(username=request.GET['username'])
+
+        if 'given-name' in request.GET:
+            request.user.update(first_name=request.GET['given-name'])
+
+        if 'family-name' in request.GET:
+            request.user.update(last_name=request.GET['family-name'])
+
+        if 'password' in request.GET:
+            request.user.update(password=request.GET['password'])
+
+        if 'phone-number' in request.GET:
+            request.user.update(phone_number=request.GET['phone-number'])
+
+        if 'email' in request.GET:
+            request.user.update(email=request.GET['email'])
+
+        data = 'Finished'
+        return ApiResponse(dict(data=data))
