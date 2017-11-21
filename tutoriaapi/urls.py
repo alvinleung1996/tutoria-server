@@ -16,6 +16,12 @@ urlpatterns = [
     # GET users/{username}/events
     url(r'^users/(?P<username>\w+)/events$', views.users.UserEventsView.as_view()),
 
+    # GET users/{username}/transactions
+    url(r'^users/(?P<username>\w+)/transactions$', views.users.UserTransactionsView.as_view()),
+
+    # POST users/{username}/wallets
+    url(r'^users/(?P<username>\w+)/wallets$', views.users.UserWalletsView.as_view()),
+
     # POST users/{username}/tutorials
     # { "preview": true } -> no booking, only preview the charge
     # other book th tutorial
@@ -23,6 +29,9 @@ urlpatterns = [
 
     # GET|DELETE tutorials/{tutorialId}
     url(r'^tutorials/(?P<tutorial_id>\w+)$', views.tutorials.TutorialView.as_view()),
+
+    # POST tutorials/{tutorialId}/review
+    url(r'^tutorials/(?P<tutorial_id>\w+)/review$', views.tutorials.ReviewView.as_view()),
 
     #
     # tutors.py
