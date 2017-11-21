@@ -235,19 +235,16 @@ class ReviewView(View):
         if hasattr(tutorial,'review'):
             return ApiResponse(error_message='Already reviewed', status=HTTPStatus.FORBIDDEN)
         else:
-            if 'score' not in data:
-                return ApiResponse(error_message='Score required', status=HTTPStatus.BAD_REQUEST)
+            if ('score' not in data
+                or 'comment' not in data
+                or 'anonymous' not in data):
+                return ApiResponse(error_message='Incomplete body', status=HTTPStatus.BAD_REQUEST)
             try:
                 intScore = int(data['score'])
                 if intScore > 5 or intScore < 0:
                     return ApiResponse(error_message='Score out of range', status=HTTPStatus.FORBIDDEN)
             except:
                 return ApiResponse(error_message='Invalid score', status=HTTPStatus.BAD_REQUEST)
-
-            if 'comment' not in data:
-                return ApiResponse(error_message='Comment required', status=HTTPStatus.BAD_REQUEST)
-            if 'anonymous' not in data:
-                return ApiResponse(error_message='Anonymous required', status=HTTPStatus.BAD_REQUEST)
             Review.create(
                 tutorial = tutorial,
                 comment = data['comment'],
