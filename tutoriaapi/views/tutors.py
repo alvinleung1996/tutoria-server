@@ -170,7 +170,7 @@ class TutorView(View):
             item = dict(
                 score = review.score,
                 time = review.time.isoformat(timespec='microseconds'),
-                comment = entry.comment
+                comment = review.comment
             )
             if not review.anonymous:
                 item['student'] = dict(
