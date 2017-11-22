@@ -84,9 +84,6 @@ class UserView(View):
                 and (username == 'me' or request.user.username == username)):
             # User want to update his/her profile
 
-            # If user has changed its password ('password' in data)
-            # user will be logged out (even the password is the same)
-
             if request.user.username != username:
                 e = self.validate_username(data['username'])
                 if e:
@@ -125,11 +122,14 @@ class UserView(View):
             except User.DoesNotExist:
                 return ApiResponse(error_message='Cannot find user profile', status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
+            require_relogin = False
+
             if user.username != username:
                 user.username = username
 
             if 'password' in data:
                 user.set_password(data['password'])
+                require_relogin = True
 
             if 'email' in data:
                 user.email = data['email']
@@ -144,6 +144,11 @@ class UserView(View):
                 user.phone_number = data['phoneNumber']
 
             user.save()
+
+            # If user has supply the password ('password' in data)
+            # user will be logged out after set_password() (even if the password has not changed)
+            if require_relogin:
+                login(request, user)
 
             return ApiResponse(message='Update success')
 
