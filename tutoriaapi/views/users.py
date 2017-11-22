@@ -212,6 +212,21 @@ class ChangePersonalDetails(View):
 
         if 'email' in request.GET:
             request.user.update(email=request.GET['email'])
+
+        if 'type' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(type=request.GET['type'])
+
+        if 'hourly-rate' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(hourly_rate=request.GET['hourly-rate'])
+
+        if 'activated' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(activated=request.GET['activated'])
+
+        if 'university' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(university=request.GET['university'])
+
+        if 'course-code-set' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(course_code_set=request.GET['course-code-set']
         
         if success == True:
             data = 'Finished'
