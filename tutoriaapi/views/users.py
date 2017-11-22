@@ -339,6 +339,78 @@ class UserEventsView(View):
 
         return ApiResponse(data=data)
 
+
+
+class ChangePersonalDetails(View):
+    
+    http_method_names = ['get']
+
+    def get(self, request, username, *args, **kwargs):
+        
+        if not request.user.is_authenticated:
+            return ApiResponse(error_message='Not authenticated', status=HTTPStatus.UNAUTHORIZED)
+
+        elif not request.user.is_active:
+            return ApiResponse(error_message='Not active', status=HTTPStatus.UNAUTHORIZED)
+        
+        elif username != 'me' and request.user.username != username:
+            return ApiResponse(error_message='Access forbidened', status=HTTPStatus.FORBIDDEN)
+            
+        try:
+            # request.user is django.contrib.auth.models.User
+            # request.user.user is tutoriaapi.models.User
+            user = request.user.user
+        except User.DoesNotExist:
+            return ApiResponse(error_message='No user profile found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        
+        data = []
+
+        success = True
+
+        if 'username' in request.GET:
+            if User.objects.filter(username=request.GET['username']).exists() == True:
+                data.append("Fail to change username becuase the new username is already used!")
+                success = False
+            else:
+                user.update(username=request.GET['username'])
+
+        if 'given-name' in request.GET:
+            user.update(first_name=request.GET['given-name'])
+
+        if 'family-name' in request.GET:
+            user.update(last_name=request.GET['family-name'])
+
+        if 'password' in request.GET:
+            user.update(password=request.GET['password'])
+
+        if 'phone-number' in request.GET:
+            user.update(phone_number=request.GET['phone-number'])
+
+        if 'email' in request.GET:
+            user.update(email=request.GET['email'])
+
+        if 'type' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(type=request.GET['type'])
+
+        if 'hourly-rate' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(hourly_rate=request.GET['hourly-rate'])
+
+        if 'activated' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(activated=request.GET['activated'])
+
+        if 'university' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(university=request.GET['university'])
+
+        if 'course-code-set' in request.GET:
+            Tutor.objects.filter(user__username=user.username).update(course_code_set=request.GET['course-code-set']
+        
+        if success == True:
+            data = 'Finished'
+
+        return ApiResponse(dict(data=data))
+
+
+
 class UserTransactionsView(View):
 
     http_method_names = ['get']
@@ -371,6 +443,8 @@ class UserTransactionsView(View):
                 item['depositTo'] = transaction.deposit_wallet.user.full_name
             data.append(item)
         return ApiResponse(data=data)
+
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class UserWalletsView(View):
