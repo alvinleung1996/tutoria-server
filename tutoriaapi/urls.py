@@ -13,7 +13,7 @@ urlpatterns = [
     # PUT/DELETE users/{username}/login-session
     url(r'^users/(?P<username>\w+)/login\-session$', views.users.UserLoginSessionView.as_view()),
 
-    # GET users/{username}/events
+    # GET|POST users/{username}/events
     url(r'^users/(?P<username>\w+)/events$', views.users.UserEventsView.as_view()),
 
     # GET users/{username}/transactions

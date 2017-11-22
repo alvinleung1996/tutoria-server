@@ -122,10 +122,10 @@ class UserLoginSessionView(View):
         return ApiResponse(message='Logout success')
 
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class UserEventsView(View):
 
-    http_method_names = ['get']
+    http_method_names = ['get', 'post']
 
     def get(self, request, username, *args, **kwargs):
 
@@ -162,6 +162,38 @@ class UserEventsView(View):
             data.append(item)
 
         return ApiResponse(data=data)
+
+    def post(self, request, username, *args, **kwargs):
+        if (not request.user.is_authenticated or not request.user.is_active
+            or (username != 'me' and request.user.username != username)):
+            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
+        
+        try:
+            user = request.user.user
+        except User.DoesNotExist:
+            return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return ApiResponse(error_message='Invalid data', status=HTTPStatus.BAD_REQUEST)
+        if ('startTime' not in data
+                or 'endTime' not in data):
+            return ApiResponse(error_message='Incomplete body', status=HTTPStatus.BAD_REQUEST)
+        try:
+            start_time = parser.parse(data['startTime'])
+            end_time = parser.parse(data['endTime'])
+        except (ValueError, OverflowError):
+            return ApiResponse(error_message='Wrong time format', status=HTTPStatus.BAD_REQUEST)
+        try:
+            tutor = Tutor.objects.get(user__base_user=request.user)
+        except Tutor.DoesNotExist:
+            return ApiResponse(error_message='Require Tutor role', status=HTTPStatus.FORBIDDEN)
+        UnavailablePeriod.create(
+            tutor = tutor,
+            start_time = start_time,
+            end_time = end_time
+        )
+        return ApiResponse(message='Black out success')
 
 class UserTransactionsView(View):
 
