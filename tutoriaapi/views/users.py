@@ -186,9 +186,17 @@ class ChangePersonalDetails(View):
             user = request.user.user
         except User.DoesNotExist:
             return ApiResponse(error_message='No user profile found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        
+        data = []
+
+        success = True
 
         if 'username' in request.GET:
-            request.user.update(username=request.GET['username'])
+            if User.objects.filter(username=request.GET['username']).exists() == True:
+                data.append("Fail to change username becuase the new username is already used!")
+                success = False
+            else:
+                request.user.update(username=request.GET['username'])
 
         if 'given-name' in request.GET:
             request.user.update(first_name=request.GET['given-name'])
@@ -204,8 +212,10 @@ class ChangePersonalDetails(View):
 
         if 'email' in request.GET:
             request.user.update(email=request.GET['email'])
+        
+        if success == True:
+            data = 'Finished'
 
-        data = 'Finished'
         return ApiResponse(dict(data=data))
 
 
