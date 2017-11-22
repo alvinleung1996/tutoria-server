@@ -28,7 +28,7 @@ def _user_to_json(user):
         fullName = user.full_name,
         phoneNumber = user.phone_number,
         email = user.email,
-        roles = [],
+        roles = ['user'],
         avatar = user.avatar
         # TODO: more data
     )
@@ -75,19 +75,17 @@ class UserView(View):
             data = json.loads(request.body)
         except json.JSONDecodeError:
             return ApiResponse(error_message='Invalid body', status=HTTPStatus.BAD_REQUEST)
-
-        # not 'str' to check if a string is empty, str will evaluate to falsy if it is empty
-
+        
         error = dict()
 
         if (request.user.is_authenticated and request.user.is_active
                 and (username == 'me' or request.user.username == username)):
             # User want to update his/her profile
 
-            if request.user.username != username:
-                e = self.validate_username(data['username'])
-                if e:
-                    error['username'] = e
+            # if request.user.username != username:
+            #     e = self.validate_username(data['username'])
+            #     if e:
+            #         error['username'] = e
 
             if 'password' in data:
                 e = self.validate_password(data['password'])
@@ -124,8 +122,8 @@ class UserView(View):
 
             require_relogin = False
 
-            if user.username != username:
-                user.username = username
+            # if username != 'me' and user.username != username:
+            #     user.username = username
 
             if 'password' in data:
                 user.set_password(data['password'])
@@ -213,6 +211,8 @@ class UserView(View):
     def validate_username(self, username):
         if len(username) < 1:
             return 'Username cannot be empty'
+        elif username == 'me':
+            return '"me" cannot be your username'
         elif User.objects.filter(username=username).count() > 0:
             return 'Username has already been taken'
         return None
