@@ -7,7 +7,7 @@ urlpatterns = [
     #
     # users.py
     #
-    # GET users/{username}
+    # GET|PUT users/{username}
     url(r'^users/(?P<username>\w+)$', views.users.UserView.as_view()),
 
     # PUT/DELETE users/{username}/login-session
