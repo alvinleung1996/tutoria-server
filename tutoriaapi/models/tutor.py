@@ -13,7 +13,7 @@ class SubjectTag(models.Model):
     def create(cls, tutor, tag):
         return cls.objects.create(tutor=tutor, tag=tag)
 
-    tutor = models.ForeignKey('Tutor', on_delete=models.CASCADE, related_name='subject_tag_set', related_query_name='subject_tag_set')
+    tutor = models.ForeignKey('Tutor', on_delete=models.CASCADE, related_name='subject_tag_set', related_query_name='subject_tag')
 
     tag = models.CharField(max_length=10)
 
@@ -41,8 +41,7 @@ class Tutor(models.Model):
             university = university
         )
         tutor.course_code_set.set(course_codes)
-        for tag in subject_tags:
-            tutor.subject_tag_set.add(tag if isinstance(tag, SubjectTag) else SubjectTag.create(tutor, tag))
+        tutor.set_subject_tags(subject_tags)
         return tutor
 
 
@@ -53,7 +52,7 @@ class Tutor(models.Model):
         (TYPE_CONTRACTED, 'Contracted')
     ), default=TYPE_PRIVATE)
 
-    biography = models.TextField()
+    biography = models.TextField(default='', blank=True)
 
     hourly_rate = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
 
@@ -142,6 +141,12 @@ class Tutor(models.Model):
         
         return fee
 
+
+    def set_subject_tags(self, subject_tags):
+        self.subject_tag_set.all().delete()
+        if isinstance(subject_tags, list):
+            for tag in subject_tags:
+                SubjectTag.create(self, tag)
 
     def add_unavailable_period(self, start_time, end_time):
         return unavailable_period.UnavailablePeriod.create(

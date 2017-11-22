@@ -1,13 +1,17 @@
 from http import HTTPStatus
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime
+import json
 
+from django.contrib.auth.views import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 from django.utils import timezone as djtimezone
 
-from ..models import Tutor, CourseCode, Review, Event, Tutorial
+from ..models import Tutor, CourseCode, Review, Event, Tutorial, University
 
 from .api_response import ApiResponse
+from ..api_exception import ApiException
 from ..utils import get_time
 
 class TutorSetSearchView(View):
@@ -117,9 +121,10 @@ class TutorSetSearchView(View):
         return ApiResponse(data=data)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class TutorView(View):
 
-    http_method_names = ['get']
+    http_method_names = ['get', 'put']
 
     def get(self, request, tutor_username, *args, **kwargs):
 
@@ -150,6 +155,7 @@ class TutorView(View):
             subjectTags = [t.tag for t in tutor.subject_tag_set.all()],
             averageReviewScore = -1,
             biography = tutor.biography,
+            activated = tutor.activated,
 
             reviews = [],
 
@@ -198,3 +204,206 @@ class TutorView(View):
 
 
         return ApiResponse(data)
+
+
+    def put(self, request, tutor_username, *args, **kwargs):
+
+        if not request.user.is_authenticated or not request.user.is_active:
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
+
+        try:
+            body = json.loads(request.body)
+        except json.JSONDecodeError:
+            return ApiResponse(error_message='Invalid body', status=HTTPStatus.BAD_REQUEST)
+
+        try:
+            tutor = Tutor.objects.get(user__username=request.user.username)
+        except Tutor.DoesNotExist:
+            tutor = None
+        
+        data = dict()
+        error = dict()
+
+        if tutor is not None:
+            # Tutor want to update his/her tutor profile
+
+            if 'type' in body:
+                try:
+                    data['type'] = self.validate_type(body['type'])
+                except ApiException as e:
+                    error['type'] = e.message
+
+            if 'activated' in body:
+                try:
+                    data['activated'] = self.validate_activated(body['activated'])
+                except ApiException as e:
+                    error['activated'] = e.message
+
+            if 'subjectTags' in body:
+                try:
+                    data['subject_tags'] = self.validate_subject_tags(body['subjectTags'])
+                except ApiException as e:
+                    error['subjectTags'] = e.message
+
+            if 'university' in body:
+                try:
+                    data['university'] = self.validate_university(body['university'])
+                except ApiException as e:
+                    error['university'] = e.message
+
+            if 'courseCodes' in body:
+                try:
+                    data['course_codes'] = self.validate_course_codes(body['courseCodes'])
+                except ApiException as e:
+                    error['courseCodes'] = e.message
+
+            if 'hourlyRate' in body:
+                try:
+                    data['hourly_rate'] = self.validate_hourly_rate(body['hourlyRate'])
+                except ApiException as e:
+                    error['hourlyRate'] = e.message
+
+            if 'biography' in body:
+                try:
+                    data['biography'] = self.validate_biography(body['biography'])
+                except ApiException as e:
+                    error['biography'] = e.message
+
+            if error:
+                return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+
+            if 'type' in data:
+                tutor.type = data['type']
+
+            if 'activated' in data:
+                tutor.activated = data['activated']
+
+            if 'subject_tags' in data:
+                tutor.set_subject_tags(data['subject_tags'])
+
+            if 'university' in data:
+                tutor.university = data['university']
+
+            if 'course_codes' in data:
+                tutor.course_code_set.set(data['course_codes'])
+
+            if 'hourly_rate' in data:
+                tutor.hourly_rate = data['hourly_rate']
+
+            if 'biography' in data:
+                tutor.biography = data['biography']
+
+            tutor.save()
+
+            return ApiResponse(message='Update tutor profile success')
+
+        else:
+            # User want to create a new Tutor profile
+
+            if 'type' not in body:
+                error['type'] = 'Tutor type required'
+            else:
+                try:
+                    data['type'] = self.validate_type(body['type'])
+                except ApiException as e:
+                    error['type'] = e.message
+
+            if 'activated' not in body:
+                data['activated'] = True
+            else:
+                try:
+                    data['activated'] = self.validate_activated(body['activated'])
+                except ApiException as e:
+                    error['activated'] = e.message
+
+            if 'subjectTags' not in body:
+                data['subject_tags'] = []
+            else:
+                try:
+                    data['subject_tags'] = self.validate_subject_tags(body['subjectTags'])
+                except ApiException as e:
+                    error['subjectTags'] = e.message
+
+            if 'university' not in body:
+                error['university'] = 'University required'
+            else:
+                try:
+                    data['university'] = self.validate_university(body['university'])
+                except ApiException as e:
+                    error['university'] = e.message
+
+            if 'courseCodes' not in body:
+                error['courseCodes'] = 'Course codes required'
+            else:
+                try:
+                    data['course_codes'] = self.validate_course_codes(body['courseCodes'])
+                except ApiException as e:
+                    error['courseCodes'] = e.message
+            
+            if 'hourlyRate' not in body:
+                error['hourlyRate'] = 'Hourly rate required'
+            else:
+                try:
+                    data['hourly_rate'] = self.validate_hourly_rate(body['hourlyRate'])
+                except ApiException as e:
+                    error['hourlyRate'] = e.message
+            
+            if 'biography' not in body:
+                data['biography'] = ''
+            else:
+                try:
+                    data['biography'] = self.validate_biography(body['biography'])
+                except ApiException as e:
+                    error['biography'] = e.message
+
+            # Check if error dict is empty
+            if error:
+                return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+
+            else:
+                request.user.user.add_role(Tutor, **data)
+                return ApiResponse(message='Add tutor profile success')
+
+
+    def validate_type(self, tutor_type):
+        if tutor_type != 'contracted' and tutor_type != 'private':
+            raise ApiException(message='Invalid type')
+        return Tutor.TYPE_CONTRACTED if tutor_type == 'contracted' else Tutor.TYPE_PRIVATE
+
+    def validate_activated(self, activated):
+        return bool(activated)
+
+    def validate_subject_tags(self, subject_tags):
+        if not isinstance(subject_tags, list):
+            raise ApiException(message='Invalid subjectTags format')
+        elif '' in subject_tags:
+            raise ApiException(message='No subject tag can be empty')
+        return subject_tags
+
+    def validate_university(self, university):
+        try:
+            u = University.objects.get(name=university)
+        except University.DoesNotExist as e:
+            raise ApiException(message='Invalid university name')
+        return u
+
+    def validate_course_codes(self, course_codes):
+        if not isinstance(course_codes, list):
+            raise ApiException(message='Invalid course codes format')
+        else:
+            # remove duplication
+            course_codes = set(course_codes)
+            try:
+                course_code_instances = [CourseCode.objects.get(code=c) for c in course_codes]
+            except CourseCode.DoesNotExist as e:
+                raise ApiException(message='Cannot find course code')
+            return course_code_instances
+
+    def validate_hourly_rate(self, hourly_rate):
+        try:
+            return Decimal(hourly_rate)
+        except InvalidOperation:
+            raise ApiException(message='Invalid hourlyRate format')
+
+    def validate_biography(self, biography):
+        return biography.strip()

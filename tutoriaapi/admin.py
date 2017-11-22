@@ -10,7 +10,7 @@ admin.site.register(User, UserAdmin)
 admin.site.register(Student)
 
 class TutorAdmin(admin.ModelAdmin):
-    list_display = ('id',)
+    list_display = ('user', 'activated', 'university', 'type', 'hourly_rate')
 admin.site.register(Tutor, TutorAdmin)
 admin.site.register(Company)
 
