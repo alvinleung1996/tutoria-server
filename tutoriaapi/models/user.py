@@ -1,3 +1,6 @@
+import string, random
+from datetime import datetime, timezone, timedelta
+
 from django.db import models
 from django.contrib.auth.models import User as BaseUser
 
@@ -23,6 +26,10 @@ class User(BaseUser):
         return user
 
     base_user = models.OneToOneField(BaseUser, parent_link=True, on_delete=models.CASCADE, related_name='user', related_query_name='user')
+
+    access_token = models.CharField(max_length=128, null=True, blank=True, default=None)
+
+    access_token_expiry_time = models.DateTimeField(null=True, blank=True, default=None)
 
     phone_number = models.CharField(max_length=8)
 
@@ -80,6 +87,14 @@ class User(BaseUser):
             return self.company
         else:
             raise Exception('Unsupported role type')
+    
+
+    def generate_access_token(self):
+        self.access_token = ''.join(random.choice(string.digits + string.ascii_lowercase) for i in range(8))
+        self.access_token_expiry_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
+        self.save()
+        return self.access_token
+
 
     def send_message(self, to_user, **kwargs):
         return message.Message.create(self, to_user, **kwargs)
