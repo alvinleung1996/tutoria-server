@@ -364,6 +364,23 @@ class UserEventsView(View):
             tutor = Tutor.objects.get(user__base_user=request.user)
         except Tutor.DoesNotExist:
             return ApiResponse(error_message='Require Tutor role', status=HTTPStatus.FORBIDDEN)
+
+        #any booked sessions within the time period
+        if Tutorial.objects.filter(
+            start_time__gte = start_time,
+            start_time__lt = end_time,
+            tutor = tutor,
+            cancelled = False
+        ).count() > 0:
+            return ApiResponse(error_message='Session booked in time period', status=HTTPStatus.FORBIDDEN)
+        if Tutorial.objects.filter(
+            end_time__gt = start_time,
+            end_time__lte = end_time,
+            tutor = tutor,
+            cancelled = False
+        ).count() > 0:
+            return ApiResponse(error_message='Session booked in time period', status=HTTPStatus.FORBIDDEN)
+
         UnavailablePeriod.create(
             tutor = tutor,
             start_time = start_time,
