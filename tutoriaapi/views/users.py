@@ -196,22 +196,22 @@ class ChangePersonalDetails(View):
                 data.append("Fail to change username becuase the new username is already used!")
                 success = False
             else:
-                request.user.update(username=request.GET['username'])
+                user.update(username=request.GET['username'])
 
         if 'given-name' in request.GET:
-            request.user.update(first_name=request.GET['given-name'])
+            user.update(first_name=request.GET['given-name'])
 
         if 'family-name' in request.GET:
-            request.user.update(last_name=request.GET['family-name'])
+            user.update(last_name=request.GET['family-name'])
 
         if 'password' in request.GET:
-            request.user.update(password=request.GET['password'])
+            user.update(password=request.GET['password'])
 
         if 'phone-number' in request.GET:
-            request.user.update(phone_number=request.GET['phone-number'])
+            user.update(phone_number=request.GET['phone-number'])
 
         if 'email' in request.GET:
-            request.user.update(email=request.GET['email'])
+            user.update(email=request.GET['email'])
 
         if 'type' in request.GET:
             Tutor.objects.filter(user__username=user.username).update(type=request.GET['type'])
