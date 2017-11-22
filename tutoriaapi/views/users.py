@@ -227,7 +227,26 @@ class ChangePersonalDetails(View):
 
         if 'course-code-set' in request.GET:
             Tutor.objects.filter(user__username=user.username).update(course_code_set=request.GET['course-code-set']
-        
+
+        if 'added-role' in request.GET:
+            added_role = request.GET['added-role']
+            user = User.objects.get(first_name__icontains='fortest')
+            if added_role == 'Student':
+                user.add_role(Student)
+            else:
+                type = request.GET['type']
+                biography = request.GET['biography']
+                hourly_rate = request.GET['hour-rate']
+                university = request.GET['university']
+                course_code_set = request.GET['course-code-set']
+                user.add_role(Tutor,
+                      university=university,
+                      course_codes=course_code_set,
+                      type = type,
+                      biography = biography,
+                      hourly_rate = hourly_rate
+                      )
+
         if success == True:
             data = 'Finished'
 
