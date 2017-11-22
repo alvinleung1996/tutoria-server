@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 from datetime import timedelta, datetime, timezone
 from http import HTTPStatus
+import re
 
 from dateutil import parser
 
@@ -41,9 +42,10 @@ def _user_to_json(user):
 
     return json
 
+@method_decorator(csrf_exempt, name='dispatch')
 class UserView(View):
 
-    http_method_names = ['get']
+    http_method_names = ['get', 'put']
 
     def get(self, request, username, *args, **kwargs):
 
@@ -52,10 +54,10 @@ class UserView(View):
 
         elif not request.user.is_active:
             return ApiResponse(error_message='Not active', status=HTTPStatus.UNAUTHORIZED)
-        
+
         elif username != 'me' and request.user.username != username:
             return ApiResponse(error_message='Access forbidened', status=HTTPStatus.FORBIDDEN)
-            
+
         try:
             # request.user is django.contrib.auth.models.User
             # request.user.user is tutoriaapi.models.User
@@ -65,7 +67,181 @@ class UserView(View):
 
         response = _user_to_json(user)
         return ApiResponse(data=response)
-    
+
+
+    def put(self, request, username, *args, **kwargs):
+
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return ApiResponse(error_message='Invalid body', status=HTTPStatus.BAD_REQUEST)
+
+        # not 'str' to check if a string is empty, str will evaluate to falsy if it is empty
+
+        error = dict()
+
+        if (request.user.is_authenticated and request.user.is_active
+                and (username == 'me' or request.user.username == username)):
+            # User want to update his/her profile
+
+            if request.user.username != username:
+                e = self.validate_username(data['username'])
+                if e:
+                    error['username'] = e
+
+            if 'password' in data:
+                e = self.validate_password(data['password'])
+                if e:
+                    error['password'] = e
+
+            if 'email' in data:
+                e = self.validate_email(data['email'])
+                if e:
+                    error['email'] = e
+
+            if 'givenName' in data:
+                e = self.validate_given_name(data['givenName'])
+                if e:
+                    error['givenName'] = e
+
+            if 'familyName' in data:
+                e = self.validate_family_name(data['familyName'])
+                if e:
+                    error['familyName'] = e
+
+            if 'phoneNumber' in data:
+                e = self.validate_phone_number(data['phoneNumber'])
+                if e:
+                    error['phoneNumber'] = e
+
+            if error:
+                return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+
+            try:
+                user = request.user.user
+            except User.DoesNotExist:
+                return ApiResponse(error_message='Cannot find user profile', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+            require_relogin = False
+
+            if user.username != username:
+                user.username = username
+
+            if 'password' in data:
+                user.set_password(data['password'])
+                require_relogin = True
+
+            if 'email' in data:
+                user.email = data['email']
+
+            if 'givenName' in data:
+                user.given_name = data['givenName']
+
+            if 'familyName' in data:
+                user.family_name = data['familyName']
+
+            if 'phoneNumber' in data:
+                user.phone_number = data['phoneNumber']
+
+            user.save()
+
+            # If user has supply the password ('password' in data)
+            # user will be logged out after set_password() (even if the password has not changed)
+            if require_relogin:
+                login(request, user)
+
+            return ApiResponse(message='Update success')
+
+        else:
+            # User want to create a new account
+
+            e = self.validate_username(username)
+            if e:
+                error['username'] = e
+
+            if 'password' not in data:
+                error['password'] = 'Password required'
+            else:
+                e = self.validate_password(data['password'])
+                if e:
+                    error['password'] = e
+
+            if 'email' not in data:
+                error['email'] = 'Email required'
+            else:
+                e = self.validate_email(data['email'])
+                if e:
+                    error['email'] = e
+
+            if 'givenName' not in data:
+                error['givenName'] = 'Given name required'
+            else:
+                e = self.validate_given_name(data['givenName'])
+                if e:
+                    error['givenName'] = e
+
+            if 'familyName' not in data:
+                error['familyName'] = 'Family name required'
+            else:
+                e = self.validate_family_name(data['familyName'])
+                if e:
+                    error['familyName'] = e
+
+            if 'phoneNumber' not in data:
+                error['phoneNumber'] = 'Phone number required'
+            else:
+                e = self.validate_phone_number(data['phoneNumber'])
+                if e:
+                    error['phoneNumber'] = e
+
+            # Check if error dict is empty
+            if error:
+                return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+
+            else:
+                User.create(
+                    username = username,
+                    password = data['password'],
+                    email = data['email'],
+                    given_name = data['givenName'],
+                    family_name = data['familyName'],
+                    phone_number = data['phoneNumber']
+                )
+                return ApiResponse(message='Create success')
+
+
+    def validate_username(self, username):
+        if len(username) < 1:
+            return 'Username cannot be empty'
+        elif User.objects.filter(username=username).count() > 0:
+            return 'Username has already been taken'
+        return None
+
+    def validate_password(self, password):
+        if not re.match(r'^[A-Za-z0-9@#$%^&+=]{8,}$', password):
+            return 'Password must have at least 8 characters and only contains A-Z,a-z,0-9,@,#,$,%,^,&,+,='
+        return None
+
+    def validate_email(self, email):
+        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+            return 'Invalid email format'
+        return None
+
+    def validate_given_name(self, given_name):
+        if len(given_name) < 1:
+            return 'Given name cannot be empty'
+        return None
+
+    def validate_family_name(self, family_name):
+        if len(family_name) < 1:
+            return 'Family name cannot be empty'
+        return None
+
+    def validate_phone_number(self, phone_number):
+        if not re.match(r'^\d{8}$', phone_number):
+            return 'Phone number must has 8 digit (HK phone number format)'
+        return None
+
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -85,7 +261,7 @@ class UserLoginSessionView(View):
                 return ApiResponse(message='Already logged in')
             else:
                 logout(request)
-        
+
         try:
             data = json.loads(request.body)
         except json.JSONDecodeError:
@@ -93,7 +269,7 @@ class UserLoginSessionView(View):
 
         if 'password' not in data:
             return ApiResponse(error_message='Password required', status=HTTPStatus.BAD_REQUEST)
-        
+
         base_user = authenticate(username=username, password=data['password'])
         if base_user is None:
             return ApiResponse(error_message='Wrong login information', status=HTTPStatus.UNAUTHORIZED)
@@ -107,7 +283,7 @@ class UserLoginSessionView(View):
             return ApiResponse(error_message='No user profile found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         login(request, base_user)
-        
+
         return ApiResponse(message='login success')
 
 
@@ -132,17 +308,17 @@ class UserEventsView(View):
         if (not request.user.is_authenticated or not request.user.is_active
             or (username != 'me' and request.user.username != username)):
             return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
-        
+
         try:
             user = request.user.user
         except User.DoesNotExist:
             return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         data = []
-        
+
         for event in user.event_set.filter(
             cancelled = False,
-            start_time__gte = get_time(hour=0, minute=0)    
+            start_time__gte = get_time(hour=0, minute=0)
         ):
             concrete_event = event.concrete_event
 
@@ -204,7 +380,7 @@ class UserTransactionsView(View):
         if (not request.user.is_authenticated or not request.user.is_active
             or (username != 'me' and request.user.username != username)):
             return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
-        
+
         try:
             user = request.user.user
         except User.DoesNotExist:
@@ -238,12 +414,12 @@ class UserWalletsView(View):
         if (not request.user.is_authenticated or not request.user.is_active
             or (username != 'me' and request.user.username != username)):
             return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
-        
+
         try:
             user = request.user.user
         except User.DoesNotExist:
             return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
-        
+
         try:
             data = json.loads(request.body)
         except json.JSONDecodeError:
@@ -251,7 +427,7 @@ class UserWalletsView(View):
 
         if 'amount' not in data:
             return ApiResponse(error_message='Amount required', status=HTTPStatus.BAD_REQUEST)
-        
+
         changeAmount = Decimal(data['amount'])
 
         if changeAmount == Decimal('0'):

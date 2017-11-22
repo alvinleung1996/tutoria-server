@@ -3,7 +3,7 @@ from django.contrib import admin
 from .models import *
 
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('id', 'given_name', 'family_name', 'phone_number')
+    list_display = ('id', 'given_name', 'family_name', 'email', 'phone_number', 'access_token', 'access_token_expiry_time')
 
 admin.site.register(User, UserAdmin)
 
