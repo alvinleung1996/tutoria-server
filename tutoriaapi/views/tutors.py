@@ -132,11 +132,13 @@ class TutorView(View):
             return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
 
         try:
-            tutor = Tutor.objects.get(user__username=tutor_username)
+            tutor = Tutor.objects.get(
+                user__username = tutor_username if tutor_username != 'me' else request.user.username
+            )
         except Tutor.DoesNotExist:
             return ApiResponse(error_message='Profile not found', status=HTTPStatus.NOT_FOUND)
 
-        if not tutor.activated:
+        if request.user.user != tutor.user and not tutor.activated:
             return ApiResponse(error_message='Tutor not activated', status=HTTPStatus.FORBIDDEN)
 
         tutor_user = tutor.user
@@ -162,6 +164,8 @@ class TutorView(View):
             events = []
         )
 
+
+        # TODO separate the following logic to another view
 
         if Tutorial.objects.filter(
             end_time__gt = datetime.now(tz=djtimezone.get_default_timezone()),
@@ -210,6 +214,9 @@ class TutorView(View):
 
         if not request.user.is_authenticated or not request.user.is_active:
             return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
+
+        if tutor_username != 'me' and tutor_username != request.user.username:
+            return ApiResponse(error_message='Cannot add/update tutor profile for other', status=HTTPStatus.FORBIDDEN)
 
         try:
             body = json.loads(request.body)
@@ -378,11 +385,12 @@ class TutorView(View):
             raise ApiException(message='Invalid subjectTags format')
         elif '' in subject_tags:
             raise ApiException(message='No subject tag can be empty')
-        return subject_tags
+        # remove duplication
+        return list(set(subject_tags))
 
     def validate_university(self, university):
         try:
-            u = University.objects.get(name=university)
+            u = University.objects.get(name__iexact=university)
         except University.DoesNotExist as e:
             raise ApiException(message='Invalid university name')
         return u
@@ -394,16 +402,19 @@ class TutorView(View):
             # remove duplication
             course_codes = set(course_codes)
             try:
-                course_code_instances = [CourseCode.objects.get(code=c) for c in course_codes]
+                course_code_instances = [CourseCode.objects.get(code__iexact=c) for c in course_codes]
             except CourseCode.DoesNotExist as e:
                 raise ApiException(message='Cannot find course code')
             return course_code_instances
 
     def validate_hourly_rate(self, hourly_rate):
         try:
-            return Decimal(hourly_rate)
+            value = Decimal(hourly_rate)
         except InvalidOperation:
             raise ApiException(message='Invalid hourlyRate format')
+        if value < 0 or (value % 10) != 0:
+            raise ApiException(message='hourly rate must be >= 0 and is a multiple of 10')
+        return value
 
     def validate_biography(self, biography):
         return biography.strip()
