@@ -401,10 +401,14 @@ class TutorView(View):
         else:
             # remove duplication
             course_codes = set(course_codes)
-            try:
-                course_code_instances = [CourseCode.objects.get(code__iexact=c) for c in course_codes]
-            except CourseCode.DoesNotExist as e:
-                raise ApiException(message='Cannot find course code')
+            course_code_instances = []
+            for code in course_codes:
+                try:
+                    course_code_instances.append(CourseCode.objects.get(code__iexact=code))
+                except CourseCode.DoesNotExist as e:
+                    raise ApiException(message='Cannot find course code "'+code+'"')
+            if len(course_code_instances) == 0:
+                raise ApiException(message='Require at least one course code')
             return course_code_instances
 
     def validate_hourly_rate(self, hourly_rate):
