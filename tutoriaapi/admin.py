@@ -31,7 +31,9 @@ admin.site.register(Review)
 
 admin.site.register(Coupon)
 
-admin.site.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    list_display = ('pk', 'send_user', 'receive_user', 'title', 'time', 'read')
+admin.site.register(Message, MessageAdmin)
 
 admin.site.register(Wallet)
 

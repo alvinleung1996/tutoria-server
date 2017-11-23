@@ -45,4 +45,10 @@ urlpatterns = [
     # GET tutors/{username}
     url(r'^tutors\/(?P<tutor_username>\w+)$', views.tutors.TutorView.as_view()),
 
+    #
+    # messages.py
+    #
+    # GET messages/:message_pk
+    url(r'^messages\/(?P<message_pk>\w+)$', views.messages.MessageView.as_view())
+    
 ]

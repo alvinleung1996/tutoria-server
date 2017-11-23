@@ -525,80 +525,44 @@ class UserMessagesView(View):
 
     def get(self, request, username, *args, **kwargs):
 
-        if (not request.user.is_authenticated or not request.user.is_active):
-            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
+        if not request.user.is_authenticated or not request.user.is_active:
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
+
+        if username != 'me' and request.user.username != username:
+            return ApiResponse(error_message='Cannot view others\' messages', status=HTTPStatus.FORBIDDEN)
+
         try:
             user = request.user.user
         except User.DoesNotExist:
             return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         data = []
+        for message in Message.objects.filter(
+            Q(send_user=user) | Q(receive_user=user)
+        ).order_by('-time'):
+            item = dict(
+                pk = message.pk,
+                title = message.title,
+                # content = message.content,
+                time = message.time.isoformat(timespec='microseconds')
+            )
 
-        if username == 'me':
-            #search for all messages from the System to the login user
-            for message in Message.objects.filter(
-                send_user=None, 
-                receive_user=user
-            ).order_by('-time'):
-                item = dict(
-                    receiveUser = message.receive_user.full_name,
-                    title = message.title,
-                    content = message.content,
-                    time = message.time,
-                    read = message.read
+            item['direction'] = 'in' if message.receive_user == user else 'out'
+
+            if message.send_user is not None:
+                item['sendUser'] = dict(
+                    fullName = message.send_user.full_name
                 )
-                data.append(item)
-            return ApiResponse(data=data)
-        elif request.user.username != username:
-            #search for all messages to/from the loginuser to the username user
-            try:
-                tmp_user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                return ApiResponse(error_message='Cannot find user with username: {username}'.format(username=username), status=HTTPStatus.NOT_FOUND)
-            for message in Message.objects.filter(
-                Q(send_user=user, receive_user=tmp_user) | Q(send_user=tmp_user, receive_user=user)
-            ).order_by('-time'):
-                item = dict(
-                    title = message.title,
-                    content = message.content,
-                    time = message.time,
-                    read = message.read
+            
+            if message.receive_user is not None:
+                item['receiveUser'] = dict(
+                    fullName = message.receive_user.full_name
                 )
-                if message.send_user is not None:
-                    item['sendUser'] = message.send_user.full_name
-                if message.receive_user is not None:
-                    item['receiveUser'] = message.receive_user.full_name
-                data.append(item)
-            return ApiResponse(data=data)
-        else:
-            #preview all users' most recent message connumicated with the login user
-            scanned_users = []
-            for searching_message in Message.objects.filter(
-                Q(send_user=user) | Q(receive_user=user)
-            ):
-                if searching_message.send_user == user:
-                    tmp_user = searching_message.receive_user
-                else:
-                    tmp_user = searching_message.send_user
-                if tmp_user in scanned_users:
-                    continue
-                else:
-                    scanned_users.append(tmp_user)
-                    message = Message.objects.filter(
-                        Q(send_user=user, receive_user=tmp_user) | Q(send_user=tmp_user, receive_user=user)
-                        ).order_by('-time')[0]
-                    item = dict(
-                        title = message.title,
-                        content = message.content,
-                        time = message.time,
-                        read = message.read
-                    )
-                    if message.send_user is not None:
-                        item['sendUser'] = message.send_user.full_name
-                    if message.receive_user is not None:
-                        item['receiveUser'] = message.receive_user.full_name
-                    data.append(item)
-            return ApiResponse(data=data)
+                item['read'] = message.read
+            
+            data.append(item)
+        
+        return ApiResponse(data=data)
 
     def post(self, request, username, *args, **kwargs):
         #send message from loginUser to username
@@ -634,3 +598,4 @@ class UserMessagesView(View):
             content = body['content']
         )
         return ApiResponse(message='sent message success')
+        
