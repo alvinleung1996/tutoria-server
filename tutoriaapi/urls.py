@@ -33,8 +33,8 @@ urlpatterns = [
     # GET|DELETE tutorials/{tutorialId}
     url(r'^tutorials/(?P<tutorial_id>\w+)$', views.tutorials.TutorialView.as_view()),
 
-    # POST tutorials/{tutorialId}/review
-    url(r'^tutorials/(?P<tutorial_id>\w+)/review$', views.tutorials.ReviewView.as_view()),
+    # PUT tutorials/{tutorialId}/review
+    url(r'^tutorials/(?P<tutorial_id>\w+)/review$', views.tutorials.TutorialReviewView.as_view()),
 
     #
     # tutors.py
