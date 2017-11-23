@@ -11,7 +11,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from django.views import View
 
-from ..models import User, Student, Tutor, Company, Tutorial, UnavailablePeriod, Transaction, Message
+from ..models import User, Student, Tutor, Company, Tutorial, UnavailablePeriod, Transaction, Wallet, Message
 from ..utils.time_utils import get_time
 
 from .api_response import ApiResponse
@@ -388,15 +388,17 @@ class UserEventsView(View):
         )
         return ApiResponse(message='Black out success')
 
-class UserTransactionsView(View):
+class UserWalletTransactionsView(View):
 
     http_method_names = ['get']
 
     def get(self, request, username, *args, **kwargs):
 
-        if (not request.user.is_authenticated or not request.user.is_active
-            or (username != 'me' and request.user.username != username)):
-            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
+        if not request.user.is_authenticated or not request.user.is_active:
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
+
+        if username != 'me' and request.user.username != username:
+            return ApiResponse(error_message='Cannot view other transactions', status=HTTPStatus.FORBIDDEN)
 
         try:
             user = request.user.user
@@ -407,7 +409,7 @@ class UserTransactionsView(View):
 
         for transaction in Transaction.objects.filter(
             Q(withdraw_wallet=user.wallet) | Q(deposit_wallet=user.wallet),
-            time__gte=datetime.now(tz=timezone.utc)-timedelta(days=30)
+            time__gte = datetime.now(tz=timezone.utc) - timedelta(days=30)
         ).order_by('-time'):
         # '-' for descending order
             item = dict(
@@ -419,14 +421,37 @@ class UserTransactionsView(View):
             if transaction.deposit_wallet is not None:
                 item['depositTo'] = transaction.deposit_wallet.user.full_name
             data.append(item)
+        
         return ApiResponse(data=data)
 
+
+
 @method_decorator(csrf_exempt, name='dispatch')
-class UserWalletsView(View):
+class UserWalletView(View):
 
-    http_method_names = ['post']
+    http_method_names = ['get', 'put']
 
-    def post(self, request, username, *args, **kwargs):
+    def get(self, request, username, *args, **kwargs):
+
+        if not request.user.is_authenticated or not request.user.is_active:
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
+
+        if username != 'me' and request.user.username != username:
+            return ApiResponse(error_message='Cannot view other wallet', status=HTTPStatus.FORBIDDEN)
+
+        try:
+            wallet = Wallet.objects.get(user=request.user)
+        except Wallet.DoesNotExist:
+            return ApiResponse(error_message='Wallet not found', status=HTTPStatus.NOT_FOUND)
+
+        data = dict(
+            balance = wallet.balance
+        )
+
+        return ApiResponse(data=data)
+
+
+    def put(self, request, username, *args, **kwargs):
 
         if (not request.user.is_authenticated or not request.user.is_active
             or (username != 'me' and request.user.username != username)):
