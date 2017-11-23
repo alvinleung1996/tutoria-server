@@ -22,6 +22,9 @@ urlpatterns = [
     # POST users/{username}/wallets
     url(r'^users/(?P<username>\w+)/wallets$', views.users.UserWalletsView.as_view()),
 
+    # GET users/{username}/messages
+    url(r'^users/(?P<username>\w+)/messages$', views.users.UserMessagesView.as_view()),
+
     # POST users/{username}/tutorials
     # { "preview": true } -> no booking, only preview the charge
     # other book th tutorial
