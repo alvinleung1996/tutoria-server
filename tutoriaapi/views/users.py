@@ -1,5 +1,5 @@
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import timedelta, datetime, timezone
 from http import HTTPStatus
 import re
@@ -15,6 +15,7 @@ from ..models import User, Student, Tutor, Company, Tutorial, UnavailablePeriod,
 from ..utils.time_utils import get_time
 
 from .api_response import ApiResponse
+from ..api_exception import ApiException
 
 from django.db.models import Q
 
@@ -417,9 +418,13 @@ class UserWalletTransactionsView(View):
                 amount = str(transaction.amount)
             )
             if transaction.withdraw_wallet is not None:
-                item['withdrawFrom'] = transaction.withdraw_wallet.user.full_name
+                item['withdrawFromUser'] = dict(
+                    fullName = transaction.withdraw_wallet.user.full_name
+                )
             if transaction.deposit_wallet is not None:
-                item['depositTo'] = transaction.deposit_wallet.user.full_name
+                item['depositToUser'] = dict(
+                    fullName = transaction.deposit_wallet.user.full_name
+                )
             data.append(item)
         
         return ApiResponse(data=data)
@@ -453,45 +458,66 @@ class UserWalletView(View):
 
     def put(self, request, username, *args, **kwargs):
 
-        if (not request.user.is_authenticated or not request.user.is_active
-            or (username != 'me' and request.user.username != username)):
-            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
+        if not request.user.is_authenticated or not request.user.is_active:
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
+
+        if username != 'me' and request.user.username != username:
+            return ApiResponse(error_message='Cannot view other wallet', status=HTTPStatus.FORBIDDEN)
 
         try:
-            user = request.user.user
+            wallet = Wallet.objects.get(user=request.user)
         except User.DoesNotExist:
-            return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return ApiResponse(error_message='User profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         try:
-            data = json.loads(request.body)
+            body = json.loads(request.body)
         except json.JSONDecodeError:
             return ApiResponse(error_message='Invalid data', status=HTTPStatus.BAD_REQUEST)
+        
+        data = dict()
+        error = dict()
 
-        if 'amount' not in data:
-            return ApiResponse(error_message='Amount required', status=HTTPStatus.BAD_REQUEST)
+        if 'amountDelta' not in body:
+            error['amountDelta'] = 'Amount required'
+        else:
+            try:
+                data['amount_delta'] = self.validate_amount_delta(body['amountDelta'])
+            except ApiException as e:
+                error['amountDelta'] = e.message
+        
+        if error:
+            return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
 
-        changeAmount = Decimal(data['amount'])
-
-        if changeAmount == Decimal('0'):
-            return ApiResponse(error_message='Amount required', status=HTTPStatus.BAD_REQUEST)
-
-        if changeAmount > Decimal('0'):
+        if data['amount_delta'] > Decimal('0'):
             Transaction.create(
                 withdraw = None,
-                deposit = user,
-                amount = changeAmount
+                deposit = wallet,
+                amount = data['amount_delta']
             )
-            return ApiResponse(message='deposit success')
+            return ApiResponse(message='Deposit success')
+
         else:
             try:
                 Transaction.create(
-                    withdraw = user,
+                    withdraw = wallet,
                     deposit = None,
-                    amount = -changeAmount
+                    amount = -data['amount_delta']
                 )
-                return ApiResponse(message='withdraw success')
-            except user.wallet.InsufficientBalanceError:
-                return ApiResponse(error_message='Insufficient balance error', status=HTTPStatus.FORBIDDEN)
+            except ApiException as e:
+                return ApiResponse(error=e.error, error_message=e.message, status=HTTPStatus.FORBIDDEN)
+
+            return ApiResponse(message='withdraw success')
+    
+    def validate_amount_delta(self, amount_delta):
+        try:
+            delta = Decimal(amount_delta)
+        except InvalidOperation:
+            raise ApiException(message='Invalid amount delta format')
+        if delta == Decimal('0'):
+            raise ApiException(message='Amount delta cannot be 0')
+        return delta
+
+
 
 class UserMessagesView(View):
 
