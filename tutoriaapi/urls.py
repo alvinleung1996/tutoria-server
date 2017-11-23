@@ -25,6 +25,14 @@ urlpatterns = [
     # GET users/{username}/messages
     url(r'^users/(?P<username>\w+)/messages$', views.users.UserMessagesView.as_view()),
 
+    # PUT users/{username}/access-token
+    url(r'^users/(?P<username>\w+)/access\-token$', views.users.UserAccessTokenView.as_view()),
+
+    # PUT users/{username}/password
+    url(r'^users/(?P<username>\w+)/password$', views.users.UserPasswordView.as_view()),
+
+
+
     # POST users/{username}/tutorials
     # { "preview": true } -> no booking, only preview the charge
     # other book th tutorial

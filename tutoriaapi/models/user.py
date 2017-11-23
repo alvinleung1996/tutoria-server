@@ -93,7 +93,7 @@ class User(BaseUser):
         self.access_token = ''.join(random.choice(string.digits + string.ascii_lowercase) for i in range(8))
         self.access_token_expiry_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
         self.save()
-        return self.access_token
+        return (self.access_token, self.access_token_expiry_time)
 
 
     def send_message(self, to_user, **kwargs):
