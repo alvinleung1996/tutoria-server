@@ -16,11 +16,11 @@ urlpatterns = [
     # GET users/{username}/events
     url(r'^users/(?P<username>\w+)/events$', views.users.UserEventsView.as_view()),
 
-    # GET users/{username}/transactions
-    url(r'^users/(?P<username>\w+)/transactions$', views.users.UserTransactionsView.as_view()),
+    # GET users/{username}/wallet/transactions
+    url(r'^users/(?P<username>\w+)/wallet/transactions$', views.users.UserWalletTransactionsView.as_view()),
 
-    # POST users/{username}/wallets
-    url(r'^users/(?P<username>\w+)/wallets$', views.users.UserWalletsView.as_view()),
+    # PUT users/{username}/wallet
+    url(r'^users/(?P<username>\w+)/wallet$', views.users.UserWalletView.as_view()),
 
     # POST users/{username}/tutorials
     # { "preview": true } -> no booking, only preview the charge
