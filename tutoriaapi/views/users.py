@@ -518,10 +518,10 @@ class UserWalletView(View):
         return delta
 
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class UserMessagesView(View):
 
-    http_method_names = ['get']
+    http_method_names = ['get','post']
 
     def get(self, request, username, *args, **kwargs):
 
@@ -599,3 +599,34 @@ class UserMessagesView(View):
                         item['receiveUser'] = message.receive_user.full_name
                     data.append(item)
             return ApiResponse(data=data)
+
+    def post(self, request, username, *args, **kwargs):
+        #send message from loginUser to username
+        if (not request.user.is_authenticated or not request.user.is_active):
+            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
+        try:
+            from_user = request.user.user
+        except User.DoesNotExist:
+            return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        try:
+            to_user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return ApiResponse(error_message='User profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        if from_user == to_user:
+            return ApiResponse(error_message='Cannot send message to yourself', status=HTTPStatus.FORBIDDEN)
+        try:
+            body = json.loads(request.body)
+        except json.JSONDecodeError:
+            return ApiResponse(error_message='Invalid data', status=HTTPStatus.BAD_REQUEST)
+        if ('title' not in body
+                or 'content' not in body):
+            return ApiResponse(error_message='Incomplete body', status=HTTPStatus.BAD_REQUEST)
+        Message.create(
+            send_user = from_user,
+            receive_user = to_user,
+            title = body['title'],
+            content = body['content']
+        )
+        return ApiResponse(message='sent message success')
