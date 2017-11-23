@@ -489,15 +489,12 @@ class UserMessagesView(View):
                 receive_user=user
             ).order_by('-time'):
                 item = dict(
+                    receiveUser = message.receive_user.full_name,
                     title = message.title,
                     content = message.content,
                     time = message.time,
                     read = message.read
                 )
-                if message.send_user is not None:
-                    item['sendUser'] = message.send_user.full_name
-                if message.receive_user is not None:
-                    item['receiveUser'] = message.receive_user.full_name
                 data.append(item)
             return ApiResponse(data=data)
         elif request.user.username != username:
