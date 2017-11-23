@@ -509,6 +509,7 @@ class UserMessagesView(View):
         data = []
 
         if username == 'me':
+            #search for all messages from the System to the login user
             for message in Message.objects.filter(
                 send_user=None, 
                 receive_user=user
@@ -523,6 +524,7 @@ class UserMessagesView(View):
                 data.append(item)
             return ApiResponse(data=data)
         elif request.user.username != username:
+            #search for all messages to/from the loginuser to the username user
             try:
                 tmp_user = User.objects.get(username=username)
             except User.DoesNotExist:
@@ -543,7 +545,7 @@ class UserMessagesView(View):
                 data.append(item)
             return ApiResponse(data=data)
         else:
-            #select all messages send or receive by the user
+            #preview all users' most recent message connumicated with the login user
             scanned_users = []
             for searching_message in Message.objects.filter(
                 Q(send_user=user) | Q(receive_user=user)
@@ -556,9 +558,9 @@ class UserMessagesView(View):
                     continue
                 else:
                     scanned_users.append(tmp_user)
-                for message in Message.objects.filter(
-                    Q(send_user=user, receive_user=tmp_user) | Q(send_user=tmp_user, receive_user=user)
-                ).order_by('-time'):
+                    message = Message.objects.filter(
+                        Q(send_user=user, receive_user=tmp_user) | Q(send_user=tmp_user, receive_user=user)
+                        ).order_by('-time')[0]
                     item = dict(
                         title = message.title,
                         content = message.content,
