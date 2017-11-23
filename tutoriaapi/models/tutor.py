@@ -147,8 +147,11 @@ class Tutor(models.Model):
         if isinstance(subject_tags, list):
             for tag in subject_tags:
                 SubjectTag.create(self, tag)
-
+    
     def add_unavailable_period(self, start_time, end_time):
+        """
+        Deprecated
+        """
         return unavailable_period.UnavailablePeriod.create(
             tutor = self,
             start_time = start_time,

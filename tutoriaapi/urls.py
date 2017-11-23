@@ -45,6 +45,15 @@ urlpatterns = [
     # GET tutors/{username}
     url(r'^tutors\/(?P<tutor_username>\w+)$', views.tutors.TutorView.as_view()),
 
+    # POST tutors/{username}/unavailable-periods
+    url(r'^tutors\/(?P<tutor_username>\w+)\/unavailable\-periods$', views.tutors.TutorUnavailablePeriodSetView.as_view()),
+
+    #
+    # unavailable_period.py
+    #
+    # GET unavailable-periods/:period_pk
+    url(r'^unavailable\-periods\/(?P<period_pk>\w+)$', views.unavailable_periods.UnavailablePeriodView.as_view()),
+
     #
     # messages.py
     #

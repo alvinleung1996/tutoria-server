@@ -331,6 +331,9 @@ class UserEventsView(View):
                 event_type = 'unknown'
 
             item = dict(
+                # For compatibility: use pk instead of id
+                # I don't want to go through all the code to change the property name...
+                pk = event.pk,
                 id = event.id,
                 startTime = event.start_time.isoformat(timespec='microseconds'),
                 endTime = event.end_time.isoformat(timespec='microseconds'),
