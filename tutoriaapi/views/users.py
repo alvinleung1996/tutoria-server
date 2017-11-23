@@ -613,9 +613,13 @@ class UserMessagesView(View):
             to_user = User.objects.get(username=username)
         except User.DoesNotExist:
             return ApiResponse(error_message='User profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
-
+        
         if from_user == to_user:
             return ApiResponse(error_message='Cannot send message to yourself', status=HTTPStatus.FORBIDDEN)
+        
+        if to_user.get_role(Company):
+            return ApiResponse(error_message='Cannot send message to Company', status=HTTPStatus.FORBIDDEN)
+
         try:
             body = json.loads(request.body)
         except json.JSONDecodeError:
