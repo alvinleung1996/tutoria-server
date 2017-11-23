@@ -9,7 +9,8 @@ from ..api_exception import ApiException
 class Wallet(models.Model):
 
     class InsufficientBalanceError(ApiException):
-        pass
+        def __init__(self):
+            super().__init__(message='There are no enough balance in the wallet')
 
     @classmethod
     def create(cls, user, balance=Decimal('0'), **kwargs):
