@@ -25,6 +25,14 @@ urlpatterns = [
     # GET|POST users/{username}/messages
     url(r'^users/(?P<username>\w+)/messages$', views.users.UserMessagesView.as_view()),
 
+    # PUT users/{username}/access-token
+    url(r'^users/(?P<username>\w+)/access\-token$', views.users.UserAccessTokenView.as_view()),
+
+    # PUT users/{username}/password
+    url(r'^users/(?P<username>\w+)/password$', views.users.UserPasswordView.as_view()),
+
+
+
     # POST users/{username}/tutorials
     # { "preview": true } -> no booking, only preview the charge
     # other book th tutorial
@@ -33,8 +41,8 @@ urlpatterns = [
     # GET|DELETE tutorials/{tutorialId}
     url(r'^tutorials/(?P<tutorial_id>\w+)$', views.tutorials.TutorialView.as_view()),
 
-    # POST tutorials/{tutorialId}/review
-    url(r'^tutorials/(?P<tutorial_id>\w+)/review$', views.tutorials.ReviewView.as_view()),
+    # PUT tutorials/{tutorialId}/review
+    url(r'^tutorials/(?P<tutorial_id>\w+)/review$', views.tutorials.TutorialReviewView.as_view()),
 
     #
     # tutors.py
@@ -44,6 +52,15 @@ urlpatterns = [
 
     # GET tutors/{username}
     url(r'^tutors\/(?P<tutor_username>\w+)$', views.tutors.TutorView.as_view()),
+
+    # POST tutors/{username}/unavailable-periods
+    url(r'^tutors\/(?P<tutor_username>\w+)\/unavailable\-periods$', views.tutors.TutorUnavailablePeriodSetView.as_view()),
+
+    #
+    # unavailable_period.py
+    #
+    # GET unavailable-periods/:period_pk
+    url(r'^unavailable\-periods\/(?P<period_pk>\w+)$', views.unavailable_periods.UnavailablePeriodView.as_view()),
 
     #
     # messages.py

@@ -1,14 +1,16 @@
 from http import HTTPStatus
 from decimal import Decimal, InvalidOperation
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import json
+
+from dateutil import parser
 
 from django.contrib.auth.views import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 from django.utils import timezone as djtimezone
 
-from ..models import Tutor, CourseCode, Review, Event, Tutorial, University
+from ..models import Tutor, CourseCode, Review, Event, Tutorial, University, UnavailablePeriod
 
 from .api_response import ApiResponse
 from ..api_exception import ApiException
@@ -422,3 +424,107 @@ class TutorView(View):
 
     def validate_biography(self, biography):
         return biography.strip()
+
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class TutorUnavailablePeriodSetView(View):
+
+    http_method_names = ['post']
+
+    def post(self, request, tutor_username, *args, **kwargs):
+
+        if not request.user.is_authenticated or not request.user.is_active:
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
+
+        if tutor_username != 'me' and tutor_username != request.user.username:
+            return ApiResponse(error_message='Cannot add unavailable period for other tutor', status=HTTPStatus.FORBIDDEN)
+
+        try:
+            tutor = Tutor.objects.get(user__base_user=request.user)
+        except Tutor.DoesNotExist:
+            return ApiResponse(error_message='Missing tutor role', status=HTTPStatus.FORBIDDEN)
+
+        try:
+            body = json.loads(request.body)
+        except json.JSONDecodeError:
+            return ApiResponse(error_message='Invalid body', status=HTTPStatus.BAD_REQUEST)
+        
+        data = dict()
+        error = dict()
+
+        try:
+            data['start_time'] = self.extract_start_time(body)
+        except ApiException as e:
+            error['startTime'] = e.message
+        
+        try:
+            data['end_time'] = self.extract_end_time(body)
+        except ApiException as e:
+            error['endTime'] = e.message
+
+        if 'start_time' in data and 'end_time' in data and data['end_time'] <= data['start_time']:
+            error['endTime'] = 'Invalid time range'
+
+        try:
+            data['preview'] = self.extract_preview(body)
+        except ApiException as e:
+            error['preview'] = e.message
+        
+        if error:
+            return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+
+        if data['start_time'] < datetime.now(tz=timezone.utc):
+            return ApiResponse(error=dict(startTime='Start time has passed'), status=HTTPStatus.FORBIDDEN)
+
+        if data['end_time'] > datetime.now(tz=timezone.utc) + timedelta(days=7):
+            return ApiResponse(error=dict(endTime='End time must be within 7 days'), status=HTTPStatus.FORBIDDEN)
+        
+        if Event.objects.filter(
+            start_time__lt = data['end_time'],
+            end_time__gt = data['start_time'],
+            cancelled = False
+        ).count() > 0:
+            return ApiResponse(error = dict(
+                startTime = 'The request time has conflict with other events',
+                endTime = 'The request time has conflict with other event'
+            ), status=HTTPStatus.FORBIDDEN)
+        
+        if data['preview']:
+            reply = dict(
+                creatable = True
+            )
+            return ApiResponse(data=reply)
+
+        else:
+            period = UnavailablePeriod.create(
+                tutor = tutor,
+                start_time = data['start_time'],
+                end_time = data['end_time'],
+                cancelled = False
+            )
+            return ApiResponse(data=dict(pk=period.pk), message='Unavailable period created successfully')
+
+    
+    def extract_start_time(self, body):
+        if 'startTime' not in body:
+            raise ApiException(message='Require start time')
+        try:
+            time = parser.parse(body['startTime'])
+        except (ValueError, OverflowError):
+            raise ApiException(message='Invalid start time format')
+        return time
+    
+    def extract_end_time(self, body):
+        if 'endTime' not in body:
+            raise ApiException(message='Require end time')
+        try:
+            time = parser.parse(body['endTime'])
+        except (ValueError, OverflowError):
+            raise ApiException(message='Invalid end time format')
+        return time
+
+    def extract_preview(self, body):
+        if 'preview' not in body:
+            return False
+        return bool(body['preview'])

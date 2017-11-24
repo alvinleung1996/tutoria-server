@@ -214,6 +214,8 @@ class UserView(View):
             return 'Username cannot be empty'
         elif username == 'me':
             return '"me" cannot be your username'
+        elif username == 'any':
+            return '"any" cannot be your username'
         elif User.objects.filter(username=username).count() > 0:
             return 'Username has already been taken'
         return None
@@ -299,6 +301,135 @@ class UserLoginSessionView(View):
         return ApiResponse(message='Logout success')
 
 
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UserAccessTokenView(View):
+
+    http_method_names = ['put']
+
+    def put(self, request, username, *args, **kwargs):
+
+        if username != 'any':
+            return ApiResponse(error_message='Invalid user endpoint name, must be "any"', status=HTTPStatus.BAD_REQUEST)
+
+        try:
+            body = json.loads(request.body)
+            if not isinstance(body, dict):
+                raise ApiException(message='Incompatible body type')
+        except (json.JSONDecodeError, ApiException):
+            return ApiResponse(error_message='Invalid body format', status=HTTPStatus.BAD_REQUEST)
+
+        data = dict()
+        error = dict()
+
+        try:
+            data['email'] = self.extract_email(body)
+        except ApiException as e:
+            error['email'] = e.message
+        
+        if error:
+            return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=data['email'])
+        except User.DoesNotExist:
+            # always pretend to success, prevent try and error
+            return ApiResponse(message='success')
+
+        access_token, access_token_expiry_time = user.generate_access_token()
+
+        title = 'Temporary access token'
+        content = ('Here is your temporary access token: ' + access_token + '\n'
+                   + 'Please use this access token to reset your password within 1 hour.\n'
+                   + 'If you have not requested to reset your password, please contact the system administrator immediately ⚠️\n')
+
+        Message.create(
+            send_user = None,
+            receive_user = user,
+            title = title,
+            content = content
+        )
+
+        return ApiResponse(message='success')
+    
+
+    def extract_email(self, body):
+        if 'email' not in body:
+            raise ApiException(message='Require email')
+        if len(body['email']) == 0:
+            raise ApiException(message='email cannot be empty')
+        return body['email']
+
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UserPasswordView(View):
+
+    http_method_names = ['put']
+
+    def put(self, request, username, *args, **kwargs):
+
+        if username == 'any' or username == 'me':
+            return ApiResponse(error=dict(username='Invalid username, must not be "me" or "any"'), status=HTTPStatus.BAD_REQUEST)
+
+        try:
+            body = json.loads(request.body)
+            if not isinstance(body, dict):
+                raise ApiException(message='Incompatible body type')
+        except (json.JSONDecodeError, ApiException):
+            return ApiResponse(error_message='Invalid login body', status=HTTPStatus.BAD_REQUEST)
+
+        data = dict()
+        error = dict()
+
+        try:
+            data['access_token'] = self.extract_access_token(body)
+        except ApiException as e:
+            error['accessToken'] = e.message
+
+        try:
+            data['password'] = self.extract_password(body)
+        except ApiException as e:
+            error['password'] = e.message
+        
+        if error:
+            return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+
+        try:
+            user = User.objects.get(
+                username = username,
+                access_token = data['access_token'],
+                access_token_expiry_time__gt = datetime.now(tz=timezone.utc)
+            )
+        except User.DoesNotExist:
+            return ApiResponse(error = dict(
+                accessToken = 'Cannot find user with given access token',
+                username = 'Cannot find user with given username'
+            ), status=HTTPStatus.NOT_FOUND)
+        
+        user.set_password(data['password'])
+        user.access_token = None
+        user.access_token_expiry_time = None
+        user.save()
+
+        return ApiResponse(message='success')
+
+
+    def extract_access_token(self, body):
+        if 'accessToken' not in body:
+            raise ApiException(message='Access token required')
+        elif len(body['accessToken']) == 0:
+            raise ApiException(message='Access token cannot be empty')
+        return body['accessToken']
+    
+    def extract_password(self, body):
+        if 'password' not in body:
+            raise ApiException(message='Password required')
+        elif not re.match(r'^[A-Za-z0-9@#$%^&+=]{8,}$', body['password']):
+            raise ApiException(message='Password must have at least 8 characters and only contains A-Z,a-z,0-9,@,#,$,%,^,&,+,=')
+        return body['password']
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class UserEventsView(View):
 
@@ -331,6 +462,9 @@ class UserEventsView(View):
                 event_type = 'unknown'
 
             item = dict(
+                # For compatibility: use pk instead of id
+                # I don't want to go through all the code to change the property name...
+                pk = event.pk,
                 id = event.id,
                 startTime = event.start_time.isoformat(timespec='microseconds'),
                 endTime = event.end_time.isoformat(timespec='microseconds'),
@@ -417,14 +551,22 @@ class UserWalletTransactionsView(View):
                 time = transaction.time.isoformat(timespec='microseconds'),
                 amount = str(transaction.amount)
             )
+
             if transaction.withdraw_wallet is not None:
                 item['withdrawFromUser'] = dict(
                     fullName = transaction.withdraw_wallet.user.full_name
                 )
+            
             if transaction.deposit_wallet is not None:
                 item['depositToUser'] = dict(
                     fullName = transaction.deposit_wallet.user.full_name
                 )
+
+            
+            item['action'] = ('withdraw'
+                    if transaction.withdraw_wallet is not None and transaction.withdraw_wallet.user == user
+                    else 'deposit')
+
             data.append(item)
         
         return ApiResponse(data=data)
@@ -547,17 +689,29 @@ class UserMessagesView(View):
                 time = message.time.isoformat(timespec='microseconds')
             )
 
-            item['direction'] = 'in' if message.receive_user == user else 'out'
+            item['role'] = 'receiver' if message.receive_user == user else 'sender'
 
             if message.send_user is not None:
                 item['sendUser'] = dict(
                     fullName = message.send_user.full_name
+                )
+            else:
+                item['sendUser'] = dict(
+                    fullName = 'System'
                 )
             
             if message.receive_user is not None:
                 item['receiveUser'] = dict(
                     fullName = message.receive_user.full_name
                 )
+            else:
+                item['receiveUser'] = dict(
+                    fullName = 'System'
+                )
+            
+            # only include read only if this is the receiving user
+            # since read is associated with the receiver side
+            if item['role'] == 'receiver':
                 item['read'] = message.read
             
             data.append(item)

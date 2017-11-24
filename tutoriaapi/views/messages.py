@@ -41,17 +41,29 @@ class MessageView(View):
             time = message.time.isoformat(timespec='microseconds')
         )
 
-        data['direction'] = 'in' if message.receive_user == user else 'out'
+        data['role'] = 'receiver' if message.receive_user == user else 'sender'
 
         if message.send_user is not None:
             data['sendUser'] = dict(
                 fullName = message.send_user.full_name
+            )
+        else:
+            data['sendUser'] = dict(
+                fullName = 'System'
             )
         
         if message.receive_user is not None:
             data['receiveUser'] = dict(
                 fullName = message.receive_user.full_name
             )
+        else:
+            data['receiveUser'] = dict(
+                fullName = 'System'
+            )
+
+        # only include read only if this is the receiving user
+        # since read is associated with the receiver side
+        if data['role'] == 'receiver':
             data['read'] = message.read
 
         return ApiResponse(data=data)
@@ -87,7 +99,7 @@ class MessageView(View):
 
         if 'read' in body:
             try:
-                data['read'] = self.validate_read(body['read'])
+                data['read'] = self.extract_read(body['read'])
             except ApiException as e:
                 error['read'] = e.message
         
@@ -95,12 +107,15 @@ class MessageView(View):
             return ApiResponse(error=error)
 
         if 'read' in data:
-            message.read = data['read']
+            if message.receive_user == user: 
+                message.read = data['read']
+            else:
+                return ApiResponse(error=dict(read='Only receiver can alter the "read" field'), status=HTTPStatus.FORBIDDEN)
         
         message.save()
 
         return ApiResponse(message='Message update success')
 
     
-    def validate_read(self, read):
+    def extract_read(self, read):
         return bool(read)

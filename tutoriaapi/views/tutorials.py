@@ -150,6 +150,10 @@ class TutorialView(View):
 
         if request.user.username != tutorial.student.user.username and request.user.username != tutorial.tutor.user.username:
             return ApiResponse(error_message='Cannot view tutorial which is not related to you', status=HTTPStatus.FORBIDDEN)
+        
+        reviewable = (not tutorial.cancelled
+                      and tutorial.end_time <= datetime.now(tz=timezone.utc)
+                      and not hasattr(tutorial, 'review'))
 
         data = dict(
             id = tutorial.id,
@@ -173,7 +177,9 @@ class TutorialView(View):
                 phoneNumber = tutorial.tutor.user.phone_number
             ),
 
-            totalFee = str(tutorial.total_fee)
+            totalFee = str(tutorial.total_fee),
+
+            reviewable = reviewable
 
             # more field if needed!
         )
@@ -204,11 +210,11 @@ class TutorialView(View):
         return ApiResponse(message='Success')
 
 @method_decorator(csrf_exempt, name='dispatch')
-class ReviewView(View):
+class TutorialReviewView(View):
 
-    http_method_names = ['post']
+    http_method_names = ['put']
 
-    def post(self, request, tutorial_id, *args, **kwargs):
+    def put(self, request, tutorial_id, *args, **kwargs):
 
         if not request.user.is_authenticated or not request.user.is_active:
             return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
@@ -219,36 +225,75 @@ class ReviewView(View):
             return ApiResponse(error_message='Cannot find event with id: {id}'.format(id=tutorial_id), status=HTTPStatus.NOT_FOUND)
 
         if request.user.username != tutorial.student.user.username:
-            return ApiResponse(error_message='Cannot review this tutorial', status=HTTPStatus.FORBIDDEN)
+            return ApiResponse(error_message='Cannot review other\'s tutorial', status=HTTPStatus.FORBIDDEN)
 
         if tutorial.cancelled:
-            return ApiResponse(error_message='Invalid tutorial', status=HTTPStatus.FORBIDDEN)
+            return ApiResponse(error_message='Tutorial has been cancelled', status=HTTPStatus.FORBIDDEN)
 
         if tutorial.end_time > datetime.now(tz=timezone.utc):
-            return ApiResponse(error_message='Incomplete tutorial', status=HTTPStatus.FORBIDDEN)
+            return ApiResponse(error_message='Tutorial has not been completed', status=HTTPStatus.FORBIDDEN)
 
         try:
-            data = json.loads(request.body)
+            body = json.loads(request.body)
+            if not isinstance(body, dict):
+                raise ApiException(message='Body must be a JSON object')
         except json.JSONDecodeError:
-            return ApiResponse(error_message='Invalid data', status=HTTPStatus.BAD_REQUEST)
+            return ApiResponse(error_message='Invalid body format', status=HTTPStatus.BAD_REQUEST)
         
-        if hasattr(tutorial,'review'):
-            return ApiResponse(error_message='Already reviewed', status=HTTPStatus.FORBIDDEN)
+        if hasattr(tutorial, 'review'):
+            return ApiResponse(error_message='Tutorial has already been reviewed', status=HTTPStatus.FORBIDDEN)
+
+        data = dict()
+        error = dict()
+
+        if 'score' not in body:
+            error['score'] = 'Score is required'
         else:
-            if ('score' not in data
-                or 'comment' not in data
-                or 'anonymous' not in data):
-                return ApiResponse(error_message='Incomplete body', status=HTTPStatus.BAD_REQUEST)
             try:
-                intScore = int(data['score'])
-                if intScore > 5 or intScore < 0:
-                    return ApiResponse(error_message='Score out of range', status=HTTPStatus.FORBIDDEN)
-            except:
-                return ApiResponse(error_message='Invalid score', status=HTTPStatus.BAD_REQUEST)
-            Review.create(
-                tutorial = tutorial,
-                comment = data['comment'],
-                score = data['score'],
-                anonymous = data['anonymous']
-            )
-            return ApiResponse(message='Review success')
+                data['score'] = self.validate_score(body['score'])
+            except ApiException as e:
+                error['score'] = e.message
+        
+        if 'anonymous' not in body:
+            data['anonymous'] = False
+        else:
+            try:
+                data['anonymous'] = self.validate_anonymous(body['anonymous'])
+            except ApiException as e:
+                error['anonymous'] = e.message
+        
+        if 'comment' not in body:
+            data['comment'] = ''
+        else:
+            try:
+                data['comment'] = self.validate_comment(body['comment'])
+            except ApiException as e:
+                error['comment'] = e.message
+
+        if error:
+            return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+
+        pk = Review.create(
+            tutorial = tutorial,
+            comment = data['comment'],
+            score = data['score'],
+            anonymous = data['anonymous']
+        ).pk
+
+        return ApiResponse(data=dict(pk=pk), message='Review success')
+
+    
+    def validate_score(self, score):
+        try:
+            value = int(score)
+        except ValueError:
+            raise ApiException(message='Score must be a number')
+        if value < 1 or value > 5:
+            raise ApiException(message='SCore must be in the range [1, 5]')
+        return value
+
+    def validate_comment(self, comment):
+        return comment.strip()
+    
+    def validate_anonymous(self, anonymous):
+        return bool(anonymous)
