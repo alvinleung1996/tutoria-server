@@ -52,7 +52,7 @@ class TutorSetSearchView(View):
             tutors = tutors.filter(course_code_set__code__icontains=request.GET['course-code'])
 
         if 'subject-tags' in request.GET:
-            tutors = tutors.filter(subject_tag_set__tag__icontains=request.GET['subject-tags'])
+            tutors = tutors.filter(subject_tag__tag__icontains=request.GET['subject-tags'])
 
         if 'free-only' in request.GET:
             free_only = bool(request.GET['free-only'])

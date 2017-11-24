@@ -33,10 +33,12 @@ class cronJob(CronJobBase):
         print("Ended all sessions")
     
     def invitationToReview(self, tutorial):
+        content = ('You are invited to review the tutorial you have attended: '
+                + '/tutorials/' + tutorial.pk + '/review')
         message.Message.create(
             send_user = user.User.objects.get(company__isnull=False),
             receive_user = tutorial.student.user,
             title = 'Tutorial review',
-            content = 'You are invited to review'
+            content = content
         )
         print('Invitation to review sent to ' + tutorial.student.user.username)

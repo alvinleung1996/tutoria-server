@@ -29,38 +29,50 @@ class Wallet(models.Model):
 
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
 
-    def withdraw(self, amount):
+    def withdraw(self, amount, reason=None):
         with transaction.atomic():
             wallet_row = type(self).objects.select_for_update().get(pk=self.pk)
             if wallet_row.balance >= amount:
                 wallet_row.balance -= amount
                 wallet_row.save()
                 self.refresh_from_db()
-                #notification when money move out of wallet
-                message.Message.create(
-                    send_user = None,
-                    receive_user = self.user,
-                    title = 'Money move out of your wallet',
-                    content = 'Payment amount:' + str(amount) + ' deducted'
-                )
-                print('Payment received from ' + self.user.username)
             else:
                 raise self.InsufficientBalanceError()
+
+        #notification when money move out of wallet
+        title = '${0:.2f} is withdrawed from your wallet'.format(amount)
+        content = '${0:.2f} is withdrawed from your wallet.'.format(amount)
+        if isinstance(reason, str):
+            content = content + reason
+        content = (content +  ' If you find that this should not be happened,'
+                    + ' please contact our systme administrator immediately.')
+        message.Message.create(
+            send_user = None,
+            receive_user = self.user,
+            title = title,
+            content = content
+        )
     
-    def deposit(self, amount):
+    def deposit(self, amount, reason=None):
         with transaction.atomic():
             wallet_row = type(self).objects.select_for_update().get(pk=self.pk)
             wallet_row.balance += amount
             wallet_row.save()
             self.refresh_from_db()
-            #notification when money move into the wallet
-            message.Message.create(
-                send_user = None,
-                receive_user = self.user,
-                title = 'Money move into your wallet',
-                content = 'Payment amount:' + str(amount) + ' received'
-            )
-            print('Payment made to ' + self.user.username)
+        
+        #notification when money move into the wallet
+        title = '${0:.2f} is deposited into your wallet'.format(amount)
+        content = '${0:.2f} is withdrawed from your wallet.'.format(amount)
+        if isinstance(reason, str):
+            content = content + reason
+        content = (content + ' If you find that this should not be happened,'
+                    + ' please contact our systme administrator immediately.')
+        message.Message.create(
+            send_user = None,
+            receive_user = self.user,
+            title = title,
+            content =  content
+        )
     
     def __str__(self):
         return 'Wallet: {full_name}: ${self.balance}'.format(full_name=self.user.get_full_name(), self=self)

@@ -437,9 +437,11 @@ class UserEventsView(View):
 
     def get(self, request, username, *args, **kwargs):
 
-        if (not request.user.is_authenticated or not request.user.is_active
-            or (username != 'me' and request.user.username != username)):
-            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
+        if not request.user.is_authenticated or not request.user.is_active:
+            return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
+
+        if username != 'me' and request.user.username != username:
+            return ApiResponse(error_message='Cannot view other\'s events', status=HTTPStatus.FORBIDDEN)
 
         try:
             user = request.user.user
@@ -657,6 +659,8 @@ class UserWalletView(View):
             raise ApiException(message='Invalid amount delta format')
         if delta == Decimal('0'):
             raise ApiException(message='Amount delta cannot be 0')
+        elif delta.quantize(Decimal('0.01')) != delta:
+            raise ApiException(message='Amount can be almost 2 decimal places')
         return delta
 
 

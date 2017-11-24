@@ -6,21 +6,24 @@ from django.contrib.auth.models import User as BaseUser
 
 from . import student, tutor, company, wallet, message
 
+from .. import res
+
 # https://blog.khophi.co/extending-django-user-model-userprofile-like-a-pro/https://blog.khophi.co/extending-django-user-model-userprofile-like-a-pro/
 
 class User(BaseUser):
 
     @classmethod
-    def create(cls, username, password, email, given_name, family_name, phone_number, avatar='', **kwargs):
+    def create(cls, username, password, email, given_name, family_name, phone_number, avatar=None, **kwargs):
         user = cls.objects.create(
             username = username,
             email = email,
             first_name = given_name,
             last_name = family_name,
-            phone_number = phone_number,
-            avatar = avatar
+            phone_number = phone_number
         )
         user.set_password(password)
+        if avatar is not None:
+            user.avatar = avatar
         user.save()
         wallet.Wallet.create(user=user, **kwargs)
         return user
@@ -33,7 +36,7 @@ class User(BaseUser):
 
     phone_number = models.CharField(max_length=8)
 
-    avatar = models.TextField(blank=True, default='')
+    avatar = models.TextField(blank=True, default=res.default_avatar)
 
 
     @property

@@ -50,7 +50,7 @@ urlpatterns = [
     # GET tutors?query-params=...
     url(r'^tutors$', views.tutors.TutorSetSearchView.as_view()),
 
-    # GET tutors/{username}
+    # GET|PUT tutors/{username}
     url(r'^tutors\/(?P<tutor_username>\w+)$', views.tutors.TutorView.as_view()),
 
     # POST tutors/{username}/unavailable-periods
@@ -66,6 +66,9 @@ urlpatterns = [
     # messages.py
     #
     # GET messages/:message_pk
-    url(r'^messages\/(?P<message_pk>\w+)$', views.messages.MessageView.as_view())
+    url(r'^messages\/(?P<message_pk>\w+)$', views.messages.MessageView.as_view()),
+
+    # PUT students/{username}
+    url(r'^students\/(?P<student_username>\w+)$', views.students.StudentView.as_view())
     
 ]
