@@ -20,7 +20,7 @@ admin.site.register(University)
 admin.site.register(CourseCode)
 
 class TutorialAdmin(admin.ModelAdmin):
-    list_display = ('id', 'student', 'tutor', 'start_time', 'end_time', 'cancelled')
+    list_display = ('id', 'student', 'tutor', 'start_time', 'end_time', 'cancelled', 'ended')
 admin.site.register(Tutorial, TutorialAdmin)
 
 class UnavailablePeriodAdmin(admin.ModelAdmin):
