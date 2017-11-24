@@ -551,14 +551,22 @@ class UserWalletTransactionsView(View):
                 time = transaction.time.isoformat(timespec='microseconds'),
                 amount = str(transaction.amount)
             )
+
             if transaction.withdraw_wallet is not None:
                 item['withdrawFromUser'] = dict(
                     fullName = transaction.withdraw_wallet.user.full_name
                 )
+            
             if transaction.deposit_wallet is not None:
                 item['depositToUser'] = dict(
                     fullName = transaction.deposit_wallet.user.full_name
                 )
+
+            
+            item['action'] = ('withdraw'
+                    if transaction.withdraw_wallet is not None and transaction.withdraw_wallet.user == user
+                    else 'deposit')
+
             data.append(item)
         
         return ApiResponse(data=data)
