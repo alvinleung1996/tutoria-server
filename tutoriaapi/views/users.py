@@ -660,10 +660,10 @@ class UserWalletView(View):
         return delta
 
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class UserMessagesView(View):
 
-    http_method_names = ['get']
+    http_method_names = ['get','post']
 
     def get(self, request, username, *args, **kwargs):
 
@@ -679,7 +679,6 @@ class UserMessagesView(View):
             return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         data = []
-
         for message in Message.objects.filter(
             Q(send_user=user) | Q(receive_user=user)
         ).order_by('-time'):
@@ -719,66 +718,38 @@ class UserMessagesView(View):
         
         return ApiResponse(data=data)
 
-        # if username == 'me':
-        #     for message in Message.objects.filter(
-        #         send_user=None, 
-        #         receive_user=user
-        #     ).order_by('-time'):
-        #         item = dict(
-        #             receiveUser = message.receive_user.full_name,
-        #             title = message.title,
-        #             content = message.content,
-        #             time = message.time,
-        #             read = message.read
-        #         )
-        #         data.append(item)
-        #     return ApiResponse(data=data)
-        # elif request.user.username != username:
-        #     try:
-        #         tmp_user = User.objects.get(username=username)
-        #     except User.DoesNotExist:
-        #         return ApiResponse(error_message='Cannot find user with username: {username}'.format(username=username), status=HTTPStatus.NOT_FOUND)
-        #     for message in Message.objects.filter(
-        #         Q(send_user=user, receive_user=tmp_user) | Q(send_user=tmp_user, receive_user=user)
-        #     ).order_by('-time'):
-        #         item = dict(
-        #             title = message.title,
-        #             content = message.content,
-        #             time = message.time,
-        #             read = message.read
-        #         )
-        #         if message.send_user is not None:
-        #             item['sendUser'] = message.send_user.full_name
-        #         if message.receive_user is not None:
-        #             item['receiveUser'] = message.receive_user.full_name
-        #         data.append(item)
-        #     return ApiResponse(data=data)
-        # else:
-        #     #select all messages send or receive by the user
-        #     scanned_users = []
-        #     for searching_message in Message.objects.filter(
-        #         Q(send_user=user) | Q(receive_user=user)
-        #     ):
-        #         if searching_message.send_user == user:
-        #             tmp_user = searching_message.receive_user
-        #         else:
-        #             tmp_user = searching_message.send_user
-        #         if tmp_user in scanned_users:
-        #             continue
-        #         else:
-        #             scanned_users.append(tmp_user)
-        #         for message in Message.objects.filter(
-        #             Q(send_user=user, receive_user=tmp_user) | Q(send_user=tmp_user, receive_user=user)
-        #         ).order_by('-time'):
-        #             item = dict(
-        #                 title = message.title,
-        #                 content = message.content,
-        #                 time = message.time,
-        #                 read = message.read
-        #             )
-        #             if message.send_user is not None:
-        #                 item['sendUser'] = message.send_user.full_name
-        #             if message.receive_user is not None:
-        #                 item['receiveUser'] = message.receive_user.full_name
-        #             data.append(item)
-        #     return ApiResponse(data=data)
+    def post(self, request, username, *args, **kwargs):
+        #send message from loginUser to username
+        if (not request.user.is_authenticated or not request.user.is_active):
+            return ApiResponse(error_message='Login required', status=HTTPStatus.FORBIDDEN)
+        try:
+            from_user = request.user.user
+        except User.DoesNotExist:
+            return ApiResponse(error_message='Profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        try:
+            to_user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return ApiResponse(error_message='User profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+        
+        if from_user == to_user:
+            return ApiResponse(error_message='Cannot send message to yourself', status=HTTPStatus.FORBIDDEN)
+        
+        if to_user.get_role(Company):
+            return ApiResponse(error_message='Cannot send message to Company', status=HTTPStatus.FORBIDDEN)
+
+        try:
+            body = json.loads(request.body)
+        except json.JSONDecodeError:
+            return ApiResponse(error_message='Invalid data', status=HTTPStatus.BAD_REQUEST)
+        if ('title' not in body
+                or 'content' not in body):
+            return ApiResponse(error_message='Incomplete body', status=HTTPStatus.BAD_REQUEST)
+        Message.create(
+            send_user = from_user,
+            receive_user = to_user,
+            title = body['title'],
+            content = body['content']
+        )
+        return ApiResponse(message='sent message success')
+        
