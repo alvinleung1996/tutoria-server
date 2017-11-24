@@ -280,6 +280,10 @@ class TutorView(View):
 
             if error:
                 return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+            
+            if data['hourly_rate']>Decimal('0') and data['type']==Tutor.TYPE_CONTRACTED:
+                return ApiResponse(error=dict(hourlyRate='You cannot specify hourly rate when you are a contact tutor',
+                                                type='You cannot be a contract tutor if you have a hourly rate'), status=HTTPStatus.BAD_REQUEST)
 
             if 'type' in data:
                 tutor.type = data['type']
