@@ -177,6 +177,8 @@ class Tutorial(event.Event):
                                                           related_query_name='reason_tutorial_company_to_student',
                                                           null=True, default=None, blank=True)
     
+    ended = models.BooleanField(default=False)
+    
     @property
     def total_fee(self):
         return self.tutor_fee + self.commission_fee + self.coupon_discount
