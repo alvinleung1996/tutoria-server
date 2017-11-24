@@ -22,7 +22,7 @@ urlpatterns = [
     # PUT users/{username}/wallet
     url(r'^users/(?P<username>\w+)/wallet$', views.users.UserWalletView.as_view()),
 
-    # GET users/{username}/messages
+    # GET|POST users/{username}/messages
     url(r'^users/(?P<username>\w+)/messages$', views.users.UserMessagesView.as_view()),
 
     # PUT users/{username}/access-token

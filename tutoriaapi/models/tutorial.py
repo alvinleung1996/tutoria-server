@@ -234,7 +234,15 @@ class Tutorial(event.Event):
             send_user = None,
             receive_user = self.student.user,
             title = 'Booking cancelled',
-            content = 'You booking has already been cancelled' + str(self)
+            content = 'Your booking with ' + self.tutor.user.full_name + ' from '+ str(self.start_time) + ' to ' + str(self.end_time) + ' has already been cancelled.'
+            # TODO: update message content and title
+        )
+
+        message.Message.create(
+            send_user = None,
+            receive_user = self.tutor.user,
+            title = 'Booking cancelled',
+            content = 'Your booking with ' + self.student.user.full_name + ' from '+ str(self.start_time) + ' to ' + str(self.end_time) + ' has already been cancelled.'
             # TODO: update message content and title
         )
 

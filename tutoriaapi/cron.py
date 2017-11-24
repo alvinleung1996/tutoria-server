@@ -10,26 +10,27 @@ class cronJob(CronJobBase):
     code = 'cron.cron_job'    # a unique code
 
     def do(self):
-        print("Locking all sessions")
-        for tutorial in Tutorial.objects.filter(
-                cancelled=False,
-                start_time__lte=datetime.now(tz=timezone.utc),
-                company_to_tutor_transaction__isnull=True
-            ):
-            print(tutorial.start_time)
-            print(tutorial.end_time)
-        print("Locked all sessions")
+        # print("Locking all sessions")
+        # for tutorial in Tutorial.objects.filter(
+        #         cancelled=False,
+        #         start_time__lte=datetime.now(tz=timezone.utc),
+        #         ended=False
+        #     ):
+        #     print(tutorial.start_time)
+        #     print(tutorial.end_time)
+        # print("Locked all sessions")
         print("Ending all sessions")
         for tutorial in Tutorial.objects.filter(
             cancelled=False, 
-            tutor_fee__gt=Decimal('0'),
+            ended=False,
             end_time__lte=datetime.now(tz=timezone.utc),
-            company_to_tutor_transaction__isnull=True
         ):
             print(tutorial.start_time)
             print(tutorial.end_time)
             tutorial.pay_to_tutor()
             self.invitationToReview(tutorial)
+            tutorial.ended = True
+            tutorial.save()
         print("Ended all sessions")
     
     def invitationToReview(self, tutorial):
