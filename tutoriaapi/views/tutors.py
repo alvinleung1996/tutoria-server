@@ -486,15 +486,36 @@ class TutorUnavailablePeriodSetView(View):
         if data['end_time'] > datetime.now(tz=timezone.utc) + timedelta(days=7):
             return ApiResponse(error=dict(endTime='End time must be within 7 days'), status=HTTPStatus.FORBIDDEN)
         
-        if Event.objects.filter(
+        for event in Event.objects.filter(
+            start_time__gte = data['start_time'],
             start_time__lt = data['end_time'],
-            end_time__gt = data['start_time'],
             cancelled = False
-        ).count() > 0:
-            return ApiResponse(error = dict(
-                startTime = 'The request time has conflict with other events',
-                endTime = 'The request time has conflict with other event'
-            ), status=HTTPStatus.FORBIDDEN)
+        ):
+            if event.user_set.filter(base_user=tutor.user.base_user).exists():
+                return ApiResponse(error = dict(
+                    startTime = 'The request time has conflict with other events',
+                    endTime = 'The request time has conflict with other event'
+                ), status=HTTPStatus.FORBIDDEN)
+        for event in Event.objects.filter(
+            end_time__gt = data['start_time'],
+            end_time__lte = data['end_time'],
+            cancelled = False
+        ):
+            if event.user_set.filter(base_user=tutor.user.base_user).exists():
+                return ApiResponse(error = dict(
+                    startTime = 'The request time has conflict with other events',
+                    endTime = 'The request time has conflict with other event'
+                ), status=HTTPStatus.FORBIDDEN)
+        
+        # if Event.objects.filter(
+        #     start_time__lt = data['end_time'],
+        #     end_time__gt = data['start_time'],
+        #     cancelled = False
+        # ).count() > 0:
+        #     return ApiResponse(error = dict(
+        #         startTime = 'The request time has conflict with other events',
+        #         endTime = 'The request time has conflict with other event'
+        #     ), status=HTTPStatus.FORBIDDEN)
         
         if data['preview']:
             reply = dict(
