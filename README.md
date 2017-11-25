@@ -1,4 +1,6 @@
 # tutoria-server
+1. Download Python3.6 from [Python Downloads](https://www.python.org/downloads/)
+
 
 ## Book Session
 
