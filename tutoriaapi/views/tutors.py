@@ -497,28 +497,8 @@ class TutorUnavailablePeriodSetView(View):
         
         if Event.objects.filter(
             user_set = tutor.user,
-            start_time__gte = data['start_time'],
             start_time__lt = data['end_time'],
-            cancelled = False
-        ).count() > 0:
-            return ApiResponse(error = dict(
-                startTime = 'The request time has conflict with other events',
-                endTime = 'The request time has conflict with other event'
-            ), status=HTTPStatus.FORBIDDEN)
-        if Event.objects.filter(
-            user_set = tutor.user,
             end_time__gt = data['start_time'],
-            end_time__lte = data['end_time'],
-            cancelled = False
-        ).count() > 0:
-            return ApiResponse(error = dict(
-                startTime = 'The request time has conflict with other events',
-                endTime = 'The request time has conflict with other event'
-            ), status=HTTPStatus.FORBIDDEN)
-        if Event.objects.filter(
-            user_set = tutor.user,
-            start_time__lte = data['start_time'],
-            end_time__gte = data['end_time'],
             cancelled = False
         ).count() > 0:
             return ApiResponse(error = dict(
