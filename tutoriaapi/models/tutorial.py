@@ -35,13 +35,13 @@ class Tutorial(event.Event):
             local_day_end_time = local_day_start_time + timedelta(days=1)
 
             # if student has already book one tutorial on the sam day
-            time_valid = cls.objects.filter(
+            time_valid = not cls.objects.filter(
                 start_time__lt = local_day_end_time,
                 end_time__gt = local_day_start_time,
                 student = student,
                 tutor = tutor,
                 cancelled = False,
-            ).count() == 0
+            ).exists()
 
 
         if coupon is None:
@@ -59,7 +59,7 @@ class Tutorial(event.Event):
 
         tutor_fee = tutor.calc_tutorial_fee(start_time, end_time)
 
-        commission_fee = Decimal('0') if coupon_valid else tutor_fee * Decimal('0.05')
+        commission_fee = tutor_fee * Decimal('0.05')
         
         coupon_discount =  -commission_fee if coupon_valid else Decimal('0')
 
@@ -139,12 +139,18 @@ class Tutorial(event.Event):
         )
         tutorial.user_set.set([student.user, tutor.user])
 
+        title = 'New tutorial booking'
+        content = (
+            'A new student has booked a tutorial session of yours.\n'
+            'Name: ' + student.user.full_name + '\n' +
+            'Phone number: ' + student.user.phone_number + '\n'
+        )
+
         message.Message.create(
             send_user = None,
             receive_user = tutor.user,
             title = 'New tutorial booking',
-            content = 'new tutorial booking: ' + str(tutorial)
-            # TODO: update message content and title
+            content = content
         )
 
         return tutorial

@@ -85,6 +85,9 @@ class Tutor(models.Model):
         Raises:
 
         """
+        if not self.user.has_no_event(start_time, end_time):
+            return False
+        
         # Convert to local time
         start_time = start_time.astimezone(djtimezone.get_default_timezone())
         end_time = end_time.astimezone(djtimezone.get_default_timezone())

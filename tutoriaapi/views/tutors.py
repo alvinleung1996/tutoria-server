@@ -10,7 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 from django.utils import timezone as djtimezone
 
-from ..models import Tutor, CourseCode, Review, Event, Tutorial, University, UnavailablePeriod
+from ..models import User, Tutor, CourseCode, Review, Event, Tutorial, University, UnavailablePeriod
 
 from .api_response import ApiResponse
 from ..api_exception import ApiException
@@ -70,11 +70,11 @@ class TutorSetSearchView(View):
 
                 is_free = False
 
-                time_lower_bound = get_time(hour=0, minute=0)
+                time_lower_bound = datetime.now(tz=timezone.utc)
                 time_upper_bound = get_time(hour=0, minute=0, day_offset=7)
 
                 events = Event.objects.filter(
-                    user_set__tutor = tutor,
+                    user_set = tutor.user,
                     start_time__lt = time_upper_bound,
                     end_time__gt = time_lower_bound
                 ).order_by('start_time', 'end_time')
@@ -134,13 +134,18 @@ class TutorView(View):
             return ApiResponse(error_message='Login required', status=HTTPStatus.UNAUTHORIZED)
 
         try:
+            asking_user = request.user.user
+        except User.DoesNotExist:
+            return ApiResponse(error_message='User profile not found', status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        try:
             tutor = Tutor.objects.get(
                 user__username = tutor_username if tutor_username != 'me' else request.user.username
             )
         except Tutor.DoesNotExist:
             return ApiResponse(error_message='Profile not found', status=HTTPStatus.NOT_FOUND)
 
-        if request.user.user != tutor.user and not tutor.activated:
+        if asking_user != tutor.user and not tutor.activated:
             return ApiResponse(error_message='Tutor not activated', status=HTTPStatus.FORBIDDEN)
 
         tutor_user = tutor.user
@@ -197,10 +202,14 @@ class TutorView(View):
         if len(data['reviews']) >= 3:
             data['averageReviewScore'] = tutor.average_review_score
 
-
-        for event in tutor_user.event_set.filter(
-            cancelled = False,
-            end_time__gt = get_time(hour=0, minute=0)
+        # Filter all event which is belonged to student or tutor
+        # so that user can quickly check whether he is free at that time
+        # TODO it is better to separate this to another request view,
+        # it still here just for compatibility
+        for event in Event.objects.filter(
+            user_set__in = [tutor_user, asking_user],
+            end_time__gt = get_time(hour=0, minute=0),
+            cancelled = False
         ):
             item = dict(
                 startTime = event.start_time.isoformat(timespec='microseconds'),
@@ -486,36 +495,36 @@ class TutorUnavailablePeriodSetView(View):
         if data['end_time'] > datetime.now(tz=timezone.utc) + timedelta(days=7):
             return ApiResponse(error=dict(endTime='End time must be within 7 days'), status=HTTPStatus.FORBIDDEN)
         
-        for event in Event.objects.filter(
+        if Event.objects.filter(
+            user_set = tutor.user,
             start_time__gte = data['start_time'],
             start_time__lt = data['end_time'],
             cancelled = False
-        ):
-            if event.user_set.filter(base_user=tutor.user.base_user).exists():
-                return ApiResponse(error = dict(
-                    startTime = 'The request time has conflict with other events',
-                    endTime = 'The request time has conflict with other event'
-                ), status=HTTPStatus.FORBIDDEN)
-        for event in Event.objects.filter(
+        ).count() > 0:
+            return ApiResponse(error = dict(
+                startTime = 'The request time has conflict with other events',
+                endTime = 'The request time has conflict with other event'
+            ), status=HTTPStatus.FORBIDDEN)
+        if Event.objects.filter(
+            user_set = tutor.user,
             end_time__gt = data['start_time'],
             end_time__lte = data['end_time'],
             cancelled = False
-        ):
-            if event.user_set.filter(base_user=tutor.user.base_user).exists():
-                return ApiResponse(error = dict(
-                    startTime = 'The request time has conflict with other events',
-                    endTime = 'The request time has conflict with other event'
-                ), status=HTTPStatus.FORBIDDEN)
-        
-        # if Event.objects.filter(
-        #     start_time__lt = data['end_time'],
-        #     end_time__gt = data['start_time'],
-        #     cancelled = False
-        # ).count() > 0:
-        #     return ApiResponse(error = dict(
-        #         startTime = 'The request time has conflict with other events',
-        #         endTime = 'The request time has conflict with other event'
-        #     ), status=HTTPStatus.FORBIDDEN)
+        ).count() > 0:
+            return ApiResponse(error = dict(
+                startTime = 'The request time has conflict with other events',
+                endTime = 'The request time has conflict with other event'
+            ), status=HTTPStatus.FORBIDDEN)
+        if Event.objects.filter(
+            user_set = tutor.user,
+            start_time__lte = data['start_time'],
+            end_time__gte = data['end_time'],
+            cancelled = False
+        ).count() > 0:
+            return ApiResponse(error = dict(
+                startTime = 'The request time has conflict with other events',
+                endTime = 'The request time has conflict with other event'
+            ), status=HTTPStatus.FORBIDDEN)
         
         if data['preview']:
             reply = dict(

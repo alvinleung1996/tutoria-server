@@ -91,7 +91,10 @@ class TutorialSetView(View):
                 couponDiscount = str(preview['coupon_discount']),
                 totalFee = str(preview['total_fee']),
 
+                # Deprecated
                 coupon = preview['coupon'].code if preview['coupon_valid'] else None,
+                # Use couponCode instead of coupon
+                couponCode = preview['coupon'].code if preview['coupon_valid'] else None,
                 couponValid = preview['coupon_valid'],
 
                 balance = str(preview['balance']),

@@ -62,7 +62,7 @@ class Wallet(models.Model):
         
         #notification when money move into the wallet
         title = '${0:.2f} is deposited into your wallet'.format(amount)
-        content = '${0:.2f} is withdrawed from your wallet.'.format(amount)
+        content = '${0:.2f} is deposited from your wallet.'.format(amount)
         if isinstance(reason, str):
             content = content + reason
         content = (content + ' If you find that this should not be happened,'
