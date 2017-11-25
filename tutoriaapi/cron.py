@@ -35,7 +35,7 @@ class cronJob(CronJobBase):
     
     def invitationToReview(self, tutorial):
         content = ('You are invited to review the tutorial you have attended: '
-                + '/tutorials/' + tutorial.pk + '/review')
+                + '/tutorials/' + str(tutorial.pk) + '/review')
         message.Message.create(
             send_user = user.User.objects.get(company__isnull=False),
             receive_user = tutorial.student.user,
