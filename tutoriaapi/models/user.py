@@ -41,19 +41,19 @@ class User(BaseUser):
 
     @property
     def given_name(self):
-        return self.user.first_name
+        return self.first_name
 
     @given_name.setter
     def given_name(self, value):
-        self.user.first_name = value
+        self.first_name = value
 
     @property
     def family_name(self):
-        return self.user.last_name
+        return self.last_name
 
     @family_name.setter
     def family_name(self, value):
-        self.user.last_name = value
+        self.last_name = value
 
     @property
     def full_name(self):

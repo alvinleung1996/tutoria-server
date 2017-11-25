@@ -31,73 +31,9 @@ class StudentView(View):
         except Student.DoesNotExist:
             return ApiResponse(error_message='Profile not found', status=HTTPStatus.NOT_FOUND)
 
-        student_user = student.user
+        data = dict()
 
-        data = dict(
-            username = student_user.username,
-            givenName = student_user.given_name,
-            familyName = student_user.family_name,
-            fullName = student_user.full_name,
-            avatar = student_user.avatar,
-
-            type = 'contracted' if student.type == Student.TYPE_CONTRACTED else 'privated',
-            hourlyRate = student.hourly_rate,
-            university = student.university.name,
-            courseCodes = [c.code for c in student.course_code_set.all()],
-            subjectTags = [t.tag for t in student.subject_tag_set.all()],
-            averageReviewScore = -1,
-            biography = student.biography,
-            activated = student.activated,
-
-            reviews = [],
-
-            events = []
-        )
-
-
-        # TODO separate the following logic to another view
-
-        if Studential.objects.filter(
-            end_time__gt = datetime.now(tz=djtimezone.get_default_timezone()),
-            student__user = request.user,
-            student = student,
-            cancelled = False
-        ).count() > 0:
-            data['phoneNumber'] = student_user.phone_number
-
-
-        for review in Review.objects.filter(studential__student=student):
-            item = dict(
-                score = review.score,
-                time = review.time.isoformat(timespec='microseconds'),
-                comment = review.comment
-            )
-            if not review.anonymous:
-                item['student'] = dict(
-                    givenName = review.studential.student.user.given_name,
-                    familyName = review.studential.student.user.family_name,
-                    fullName = review.studential.student.user.full_name,
-                    avatar = review.studential.student.user.avatar
-                )
-            data['reviews'].append(item)
-
-
-        if len(data['reviews']) >= 3:
-            data['averageReviewScore'] = student.average_review_score
-
-
-        for event in student_user.event_set.filter(
-            cancelled = False,
-            end_time__gt = get_time(hour=0, minute=0)
-        ):
-            item = dict(
-                startTime = event.start_time.isoformat(timespec='microseconds'),
-                endTime = event.end_time.isoformat(timespec='microseconds')
-            )
-            data['events'].append(item)
-
-
-        return ApiResponse(data)
+        return ApiResponse(data=data)
 
     def put(self, request, student_username, *args, **kwargs):
 

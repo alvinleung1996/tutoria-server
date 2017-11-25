@@ -157,7 +157,7 @@ class TutorView(View):
             fullName = tutor_user.full_name,
             avatar = tutor_user.avatar,
 
-            type = 'contracted' if tutor.type == Tutor.TYPE_CONTRACTED else 'privated',
+            type = 'contracted' if tutor.type == Tutor.TYPE_CONTRACTED else 'private',
             hourlyRate = tutor.hourly_rate,
             university = tutor.university.name,
             courseCodes = [c.code for c in tutor.course_code_set.all()],
@@ -185,6 +185,7 @@ class TutorView(View):
 
         for review in Review.objects.filter(tutorial__tutor=tutor):
             item = dict(
+                anonymous = review.anonymous,
                 score = review.score,
                 time = review.time.isoformat(timespec='microseconds'),
                 comment = review.comment
@@ -424,8 +425,7 @@ class TutorView(View):
                     course_code_instances.append(CourseCode.objects.get(code__iexact=code))
                 except CourseCode.DoesNotExist as e:
                     raise ApiException(message='Cannot find course code "'+code+'"')
-            if len(course_code_instances) == 0:
-                raise ApiException(message='Require at least one course code')
+            
             return course_code_instances
 
     def validate_hourly_rate(self, hourly_rate):

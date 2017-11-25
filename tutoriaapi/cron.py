@@ -19,27 +19,30 @@ class cronJob(CronJobBase):
         #     print(tutorial.start_time)
         #     print(tutorial.end_time)
         # print("Locked all sessions")
+
         print("Ending all sessions")
+
         for tutorial in Tutorial.objects.filter(
-            cancelled=False, 
-            ended=False,
-            end_time__lte=datetime.now(tz=timezone.utc),
+            cancelled = False, 
+            ended = False,
+            end_time__lte = datetime.now(tz=timezone.utc),
         ):
-            print(tutorial.start_time)
-            print(tutorial.end_time)
+            print('Ending tutorial (' + str(tutorial.pk) + ')')
             tutorial.pay_to_tutor()
             self.invitationToReview(tutorial)
             tutorial.ended = True
             tutorial.save()
+        
         print("Ended all sessions")
     
     def invitationToReview(self, tutorial):
-        content = ('You are invited to review the tutorial you have attended: '
-                + '/tutorials/' + tutorial.pk + '/review')
+        content = (
+            'We invite you to review the tutorial you have attended, '
+            '<a href="/tutorials/' + str(tutorial.pk) + '/review" close-dialog-on-click>Click here</a> to review.\n'
+        )
         message.Message.create(
             send_user = user.User.objects.get(company__isnull=False),
             receive_user = tutorial.student.user,
-            title = 'Tutorial review',
+            title = 'Review tutorial invitation',
             content = content
         )
-        print('Invitation to review sent to ' + tutorial.student.user.username)

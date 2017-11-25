@@ -631,13 +631,19 @@ class UserWalletView(View):
         
         if error:
             return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
-
+        
         if data['amount_delta'] > Decimal('0'):
-            Transaction.create(
-                withdraw = None,
-                deposit = wallet,
-                amount = data['amount_delta']
-            )
+            try:
+                Transaction.create(
+                    withdraw = None,
+                    deposit = wallet,
+                    amount = data['amount_delta']
+                )
+            except InvalidOperation:
+                return ApiResponse(error = dict(
+                    amountDelta = 'You wallet cannot hold such large balance!'
+                ), status=HTTPStatus.FORBIDDEN)
+            
             return ApiResponse(message='Deposit success')
 
         else:
@@ -648,19 +654,24 @@ class UserWalletView(View):
                     amount = -data['amount_delta']
                 )
             except ApiException as e:
-                return ApiResponse(error=e.error, error_message=e.message, status=HTTPStatus.FORBIDDEN)
+                return ApiResponse(error = dict(
+                    amountDelta = e.message
+                ), status=HTTPStatus.FORBIDDEN)
 
             return ApiResponse(message='withdraw success')
     
     def validate_amount_delta(self, amount_delta):
         try:
             delta = Decimal(amount_delta)
+            delta_tuple = delta.as_tuple()
         except InvalidOperation:
             raise ApiException(message='Invalid amount delta format')
         if delta == Decimal('0'):
             raise ApiException(message='Amount delta cannot be 0')
-        elif delta.quantize(Decimal('0.01')) != delta:
-            raise ApiException(message='Amount can be almost 2 decimal places')
+        elif (len(delta_tuple.digits) + delta_tuple.exponent) > 8:
+            raise ApiException(message='The integer part can have almost 8 places')
+        elif -delta_tuple.exponent > 2:
+            raise ApiException(message='The fractional part can have almost 2 places')
         return delta
 
 

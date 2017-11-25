@@ -21,6 +21,7 @@ class Message(models.Model):
             read = read
         )
 
+        # Simulate email
         log = (
             '\n\n\n'
             '=================================================\n'

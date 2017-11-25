@@ -291,8 +291,8 @@ class TutorialReviewView(View):
             value = int(score)
         except ValueError:
             raise ApiException(message='Score must be a number')
-        if value < 1 or value > 5:
-            raise ApiException(message='SCore must be in the range [1, 5]')
+        if value < 0 or value > 5:
+            raise ApiException(message='Score must be in the range [0, 5]')
         return value
 
     def validate_comment(self, comment):

@@ -141,9 +141,23 @@ class Tutorial(event.Event):
 
         title = 'New tutorial booking'
         content = (
+            'You have booked a new tutorial session.\n'
+            'Tutor Name: ' + tutor.user.full_name + '\n' +
+            'Tutor Phone number: ' + tutor.user.phone_number + '\n'
+        )
+
+        message.Message.create(
+            send_user = None,
+            receive_user = student.user,
+            title = 'New tutorial booking',
+            content = content
+        )
+
+        title = 'New tutorial booking'
+        content = (
             'A new student has booked a tutorial session of yours.\n'
-            'Name: ' + student.user.full_name + '\n' +
-            'Phone number: ' + student.user.phone_number + '\n'
+            'Student Name: ' + student.user.full_name + '\n' +
+            'Student Phone number: ' + student.user.phone_number + '\n'
         )
 
         message.Message.create(
