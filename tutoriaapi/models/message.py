@@ -12,7 +12,7 @@ class Message(models.Model):
         if time is None:
             time = datetime.now(tz=djtimezone.get_default_timezone())
         
-        return cls.objects.create(
+        messgae = cls.objects.create(
             send_user = send_user,
             receive_user = receive_user,
             title = title,
@@ -20,6 +20,22 @@ class Message(models.Model):
             time = time,
             read = read
         )
+
+        log = (
+            '\n\n\n'
+            '=================================================\n'
+            'Sender: ' + (send_user.full_name if send_user is not None else 'System') + '\n'
+            'Receiver: ' + (receive_user.full_name if receive_user is not None else 'System') + '\n'
+            'Time: ' + str(time) + '\n'
+            'Title: ' + title + '\n'
+            '-------------------------------------------------\n'
+            + content + '\n'
+            '=================================================\n'
+            '\n\n\n'
+        )
+        print(log)
+
+        return messgae
         
 
     send_user = models.ForeignKey('User', on_delete=models.SET_NULL, related_name='send_message_set', related_query_name='send_message', null=True, blank=True)
