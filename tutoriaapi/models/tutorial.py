@@ -143,7 +143,7 @@ class Tutorial(event.Event):
         content = (
             'You have booked a new tutorial session.\n'
             'Tutor Name: ' + tutor.user.full_name + '\n' +
-            'Tutor Phone number: ' + tutor.user.phone_number + '\n'
+            'Tutor Phone Number: ' + tutor.user.phone_number + '\n'
         )
 
         message.Message.create(
@@ -157,7 +157,7 @@ class Tutorial(event.Event):
         content = (
             'A new student has booked a tutorial session of yours.\n'
             'Student Name: ' + student.user.full_name + '\n' +
-            'Student Phone number: ' + student.user.phone_number + '\n'
+            'Student Phone Number: ' + student.user.phone_number + '\n'
         )
 
         message.Message.create(
