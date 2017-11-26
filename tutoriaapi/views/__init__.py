@@ -1,5 +1,6 @@
-from .auth import LoginView, LogoutView
-from .user import UserEventsView
-from .session import *
-from .tutors import SearchTutorsView
-from .tutor import TutorProfileView, TutorialFeeView, BookTutorialView
+from . import users
+from . import tutors
+from . import tutorials
+from . import messages
+from . import unavailable_periods
+from . import students

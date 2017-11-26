@@ -11,5 +11,5 @@ class IndexView(TemplateView):
         context['rootPath'] = reverse('index')
         # TODO: prevent hard coding
         context['apiRootPath'] = '/api/'
-        context['staticRootPath'] = settings.STATIC_URL
+        context['staticRootPath'] = settings.STATIC_URL + 'tutoriaserver/'
         return context
