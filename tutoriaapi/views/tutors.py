@@ -291,6 +291,7 @@ class TutorView(View):
             if error:
                 return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
             
+            # TODO fix potential key error: when user do not supply these 2 values
             if data['hourly_rate'] > Decimal('0') and data['type'] == Tutor.TYPE_CONTRACTED:
                 return ApiResponse(error=dict(
                     hourlyRate = 'You cannot have a non zero hourly rate when you are a contact tutor',
@@ -384,6 +385,12 @@ class TutorView(View):
             # Check if error dict is empty
             if error:
                 return ApiResponse(error=error, status=HTTPStatus.BAD_REQUEST)
+
+            if data['hourly_rate'] > Decimal('0') and data['type'] == Tutor.TYPE_CONTRACTED:
+                return ApiResponse(error=dict(
+                    hourlyRate = 'You cannot have a non zero hourly rate when you are a contact tutor',
+                    type = 'You cannot be a contract tutor if you have a non zero hourly rate'
+                ), status=HTTPStatus.BAD_REQUEST)
 
             else:
                 request.user.user.add_role(Tutor, **data)
