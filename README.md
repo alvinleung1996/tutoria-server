@@ -25,7 +25,7 @@ A cron file is created to manually End All Sessions that have passed(instead of 
 ```
 $ python manage.py runcrons --force
 ```
-    1. System searches for all sessions not ended
+    1. System searches for all passed sessions not ended
     2. System performs payment(if needed)
     3. System sends invitation to review messages to corresponding students
     4. System marks all those sessions as ended
