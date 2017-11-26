@@ -20,14 +20,14 @@
 This is not implemented by the scheduler but only done by checking conditions.
 
 ### 4. End All Sessions
+    1. System searches for all sessions not ended
+    2. System performs payment(if needed) and send corresponding messages
+    3. System marks all those sessions as ended
 #### Cron
 Scheduler is not implemented because it is OS-specific. A cron file is created to manually End All Sessions that have passed, which can be run by this command: 
 ```
 $ python manage.py runcrons --force
 ```
-    1. System searches for all sessions not ended
-    2. System performs payment(if needed) and send corresponding messages
-    3. System marks all those sessions as ended
 ## Database
 SQLite in django has been used
 
