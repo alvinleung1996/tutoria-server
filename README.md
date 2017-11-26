@@ -28,7 +28,7 @@ $ python manage.py runcrons --force
     1. System searches for all sessions not ended
     2. System performs payment(if needed)
     3. System sends invitation to review messages to corresponding students
-    3. System marks all those sessions as ended
+    4. System marks all those sessions as ended
 ## Database
 SQLite in django has been used
 
