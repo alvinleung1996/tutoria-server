@@ -13,7 +13,7 @@ class SubjectTag(models.Model):
     def create(cls, tutor, tag):
         return cls.objects.create(tutor=tutor, tag=tag)
 
-    tutor = models.ForeignKey('Tutor', on_delete=models.CASCADE, related_name='subject_tag_set', related_query_name='subject_tag_set')
+    tutor = models.ForeignKey('Tutor', on_delete=models.CASCADE, related_name='subject_tag_set', related_query_name='subject_tag')
 
     tag = models.CharField(max_length=10)
 
@@ -28,7 +28,10 @@ class Tutor(models.Model):
     TYPE_CONTRACTED = 'CO'
 
     @classmethod
-    def create(cls, user, type, biography, hourly_rate, university, course_codes, subject_tags=[], activated=True):
+    def create(cls, user, type, biography, university, course_codes, subject_tags=None, hourly_rate=Decimal('0'), activated=True):
+        if subject_tags is None:
+            subject_tags = []
+        
         tutor = cls.objects.create(
             user = user,
             type = type,
@@ -38,8 +41,7 @@ class Tutor(models.Model):
             university = university
         )
         tutor.course_code_set.set(course_codes)
-        for tag in subject_tags:
-            tutor.subject_tag_set.add(tag if isinstance(tag, SubjectTag) else SubjectTag.create(tutor, tag))
+        tutor.set_subject_tags(subject_tags)
         return tutor
 
 
@@ -50,7 +52,7 @@ class Tutor(models.Model):
         (TYPE_CONTRACTED, 'Contracted')
     ), default=TYPE_PRIVATE)
 
-    biography = models.TextField()
+    biography = models.TextField(default='', blank=True)
 
     hourly_rate = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0'))
 
@@ -83,6 +85,9 @@ class Tutor(models.Model):
         Raises:
 
         """
+        if not self.user.has_no_event(start_time, end_time):
+            return False
+        
         # Convert to local time
         start_time = start_time.astimezone(djtimezone.get_default_timezone())
         end_time = end_time.astimezone(djtimezone.get_default_timezone())
@@ -94,7 +99,7 @@ class Tutor(models.Model):
 
         # if current_time > start_time
         if start_time < current_time:
-            raise ValueError('start_time has passed')
+            return False
 
         # if start_time < 24 hours to start
         if (start_time - current_time) < timedelta(days=1):
@@ -102,20 +107,11 @@ class Tutor(models.Model):
 
         # if the start_time is not HH:00 or HH:30 (depending on the tutor type)
         if (start_time.second != 0 or start_time.microsecond != 0
-                or (self.type == self.TYPE_CONTRACTED and start_time.minute not in [0])
-                or (self.type == self.TYPE_PRIVATE and start_time.minute not in [0, 30])):
+                or (self.type == self.TYPE_CONTRACTED and start_time.minute not in [0, 30])
+                or (self.type == self.TYPE_PRIVATE and start_time.minute not in [0])):
             return False
 
         if (end_time - start_time) not in ([timedelta(minutes=30)] if (self.type == self.TYPE_CONTRACTED) else [timedelta(minutes=30), timedelta(minutes=60)]):
-            return False
-
-        local_day_start_time = start_time.astimezone(djtimezone.get_current_timezone()).replace(
-            hour = 0, minute = 0, second = 0, microsecond = 0
-        )
-        local_day_end_time = local_day_start_time + timedelta(days=1)
-
-        # if student has already book one tutorial on the sam day
-        if not self.user.has_no_event(local_day_start_time, local_day_end_time):
             return False
 
         return True
@@ -139,14 +135,26 @@ class Tutor(models.Model):
 
         if end_time < start_time:
             raise ValueError('end_time before start_time')
+
+        if self.type == self.TYPE_CONTRACTED:
+            return Decimal('0')
         
         duration = end_time - start_time
-        fee = (Decimal('0') if self.type == self.TYPE_CONTRACTED
-              else self.hourly_rate * (Decimal(duration.total_seconds()) / Decimal(timedelta(hours=1).total_seconds())))
+        fee = self.hourly_rate * (Decimal(duration.total_seconds()) / Decimal(timedelta(hours=1).total_seconds()))
+        
         return fee
 
 
+    def set_subject_tags(self, subject_tags):
+        self.subject_tag_set.all().delete()
+        if isinstance(subject_tags, list):
+            for tag in subject_tags:
+                SubjectTag.create(self, tag)
+    
     def add_unavailable_period(self, start_time, end_time):
+        """
+        Deprecated
+        """
         return unavailable_period.UnavailablePeriod.create(
             tutor = self,
             start_time = start_time,

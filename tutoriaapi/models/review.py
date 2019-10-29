@@ -1,18 +1,21 @@
-from datetime import datetime, timezone
+from django.utils import timezone as djtimezone
+
+from datetime import datetime
 
 from django.db import models
 
 class Review(models.Model):
 
     @classmethod
-    def create(cls, tutorial, comment, time=None, anonymous=False):
+    def create(cls, tutorial, comment, score, time=None, anonymous=False, **kwargs):
         if time is None:
-            time = datetime.now(tz=timezone.utc)
+            time = datetime.now(tz=djtimezone.get_default_timezone())
         return cls.objects.create(
             tutorial = tutorial,
-            anonymous = anonymous,
             comment = comment,
-            time = time
+            score = score,
+            time = time,
+            anonymous = anonymous,
         )
 
 
@@ -24,4 +27,4 @@ class Review(models.Model):
     anonymous = models.BooleanField(default=False)
 
     def __str__(self):
-        return 'Review: '.format(self=self)
+        return 'Review: {self.score}'.format(self=self)

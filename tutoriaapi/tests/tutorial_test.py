@@ -23,13 +23,13 @@ def _get_time(hour, minute, year=None, month=None, day=None, day_offset=0):
     return time
 
 tutorial_data_contracted_0 = dict(
-    start_time = _get_time(13, 0, day_offset=1),
-    end_time = _get_time(13, 30, day_offset=1)
+    start_time = _get_time(13, 0, day_offset=2),
+    end_time = _get_time(13, 30, day_offset=2)
 )
 
 tutorial_data_private_0 = dict(
-    start_time = _get_time(13, 0, day_offset=1),
-    end_time = _get_time(13, 30, day_offset=1)
+    start_time = _get_time(13, 0, day_offset=2),
+    end_time = _get_time(13, 30, day_offset=2)
 )
 
 
@@ -67,7 +67,7 @@ class TutorialTest(TestCase):
         event = tutorial.event
 
         self.assertIsNotNone(event)
-        self.assertIsNotNone(event.tutorial)
+        self.assertEqual(event.tutorial, tutorial)
         self.assertEqual(event.concrete_event, tutorial)
 
         self.assertListEqual(list(event.user_set.all()), [user_0, user_1])
@@ -99,7 +99,7 @@ class TutorialTest(TestCase):
         self.assertIsNone(tutorial.company_to_tutor_transaction)
         self.assertIsNone(tutorial.company_to_student_transaction)
 
-        tutorial.refund()
+        tutorial.cancel()
 
         self.assertEqual(user_0.wallet.balance, Decimal('0'))
         self.assertEqual(user_1.wallet.balance, Decimal('0'))
@@ -160,4 +160,5 @@ class TutorialTest(TestCase):
         self.assertIsNone(tutorial.company_to_student_transaction)
 
         # TODO: Add more assertion
+    
         

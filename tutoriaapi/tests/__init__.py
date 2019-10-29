@@ -15,3 +15,5 @@ from .wallet_test import *
 from .transaction_test import *
 
 from .message_test import *
+
+from .coupon_test import *
